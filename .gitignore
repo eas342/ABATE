@@ -1,1 +1,4 @@
 abate.egg-info/
+abate/__pycache__/
+*.DS_Store
+*~
