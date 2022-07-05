@@ -1,0 +1,6 @@
+Metadata-Version: 2.1
+Name: abate
+Version: 0.0.dev7
+Summary: A package to fit exoplanet atmosphere lightcurves, especially for JWST data
+Author: Everett Schlawin, Keith Baka
+License-File: LICENSE.rtf
