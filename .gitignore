@@ -5,3 +5,5 @@ abate/__pycache__/
 tests/fit_results/
 fit_traces/
 plots/
+docs/_build/
+*.ipynb_checkpoints/
