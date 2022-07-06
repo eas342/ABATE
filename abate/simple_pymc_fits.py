@@ -50,7 +50,9 @@ class exo_model(object):
                  cores=2,nchains=2,
                  fitSigma=None,
                  nbins=20,
-                 oot_start=0,oot_end=100):
+                 oot_start=0,oot_end=100,
+                 trendType=None,
+                 poly_ord=None):
         #paramPath = 'parameters/spec_params/jwst/sim_mirage_007_grismc/spec_mirage_007_p015_full_emp_cov_weights_nchdas_mmm.yaml'
         #paramPath = 'parameters/spec_params/jwst/sim_mirage_007_grismc/spec_mirage_007_p016_full_emp_cov_weights_ncdhas_ppm.yaml'
         # paramPath = 'parameters/spec_params/jwst/sim_mirage_009_grismr_8grp/spec_mirage_009_p012_full_cov_highRN_nchdas_ppm_refpix.yaml'
@@ -121,7 +123,9 @@ class exo_model(object):
         # self.useOOTforError = useOOTforError
         self.oot_start = oot_start
         self.oot_end = oot_end
-    
+        
+        self.trendType = trendType
+        self.poly_ord = poly_ord
     
     def check_phase(self):
         phase = (self.x - self.t0_lit[0]) / self.period_lit[0]
@@ -316,7 +320,26 @@ class exo_model(object):
                 # ## Assign a potential to avoid these maps
                 # nonneg_map = pm.Potential('nonneg_map', switch)
             
-            light_curves_final = pm.Deterministic("lc_final",light_curve)
+            if self.trendType is None:
+                light_curves_final = pm.Deterministic("lc_final",light_curve)
+            elif self.trendType == 'poly':
+                xNorm = (x - np.median(x))/(np.max(x) - np.min(x))
+                #xNorm_var = pm.Deterministic("xNorm",xNorm)
+                poly_coeff = pm.Normal("poly_coeff",mu=0.0,testval=0.0,
+                                       sigma=0.1,
+                                       shape=(self.poly_ord))
+                # if self.poly_ord > 1:
+                #     raise NotImplementedError("Only does linear for now")
+                for poly_ind in np.arange(self.poly_ord):
+                    if poly_ind == 0:
+                        poly_eval = xNorm * poly_coeff[self.poly_ord - poly_ind - 1]
+                    else:
+                        poly_eval = (poly_eval + poly_coeff[self.poly_ord - poly_ind - 1]) * xNorm
+                full_coeff = poly_coeff# np.append(poly_coeff,0)
+                
+                light_curves_final = pm.Deterministic("lc_final",light_curve + poly_eval)
+            else:
+                raise NotImplementedError("Only does polynomial for now")
             
             ## the mean converts to parts per thousand
         
@@ -358,7 +381,7 @@ class exo_model(object):
             # # a better solution by trying different combinations of parameters in turn
         
         
-            pm.Normal("obs", mu=light_curve[mask], sd=sigma_lc, observed=y[mask])
+            pm.Normal("obs", mu=light_curves_final[mask], sd=sigma_lc, observed=y[mask])
         
             #pdb.set_trace()
 
