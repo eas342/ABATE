@@ -2,3 +2,6 @@ abate.egg-info/
 abate/__pycache__/
 *.DS_Store
 *~
+tests/fit_results/
+fit_traces/
+plots/
