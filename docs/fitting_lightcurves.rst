@@ -101,6 +101,25 @@ ld_law
 
 This variable is a string, set to either 'quadratic' or 'multiterm', which determines the length of the list for u_lit.
 
+trendType
+~~~~~~~~~
+What of kind of trend should be fit to the data? Options are
+
+* :code:`None` Assumes the baseline is flat
+* :code:`poly` Assumes a polynomial centered at the median time and has the order
+
+poly_ord
+~~~~~~~~~
+What order polynomial should be fit to the baseline? Only matters if the :code:`trendType` is set to :code:`'poly'`
+
+expStart
+~~~~~~~~
+Should the beginning be fit with an exponential?
+
+mask
+~~~~
+A mask of points to include in the fitting. Useful if skipping some obviously bad points. If set to :code:`None`, no points are rejected initially, but may be rejected later depending on the :code:`sigReject` parameter.
+
 TShirt
 ------
 

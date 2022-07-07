@@ -52,7 +52,9 @@ class exo_model(object):
                  nbins=20,
                  oot_start=0,oot_end=100,
                  trendType=None,
-                 poly_ord=None):
+                 poly_ord=None,
+                 expStart=None,
+                 mask=None):
         #paramPath = 'parameters/spec_params/jwst/sim_mirage_007_grismc/spec_mirage_007_p015_full_emp_cov_weights_nchdas_mmm.yaml'
         #paramPath = 'parameters/spec_params/jwst/sim_mirage_007_grismc/spec_mirage_007_p016_full_emp_cov_weights_ncdhas_ppm.yaml'
         # paramPath = 'parameters/spec_params/jwst/sim_mirage_009_grismr_8grp/spec_mirage_009_p012_full_cov_highRN_nchdas_ppm_refpix.yaml'
@@ -104,8 +106,11 @@ class exo_model(object):
         self.yerr = np.ascontiguousarray(t2[t2.colnames[1]] * 1000.) ## convert to ppt
 
         self.texp = np.min(np.diff(self.x))
-
-        self.mask = np.ones(len(self.x), dtype=bool)
+        if mask is None:
+            self.mask = np.ones(len(self.x), dtype=bool)
+        else:
+            self.mask = mask
+        
         self.sigReject = sigReject
         
         # Orbital parameters for the planet, Sanchis-ojeda 2015
@@ -126,6 +131,8 @@ class exo_model(object):
         
         self.trendType = trendType
         self.poly_ord = poly_ord
+        
+        self.expStart = expStart
     
     def check_phase(self):
         phase = (self.x - self.t0_lit[0]) / self.period_lit[0]
@@ -321,7 +328,7 @@ class exo_model(object):
                 # nonneg_map = pm.Potential('nonneg_map', switch)
             
             if self.trendType is None:
-                light_curves_final = pm.Deterministic("lc_final",light_curve)
+                light_curves_trended = pm.Deterministic("lc_trended",light_curve)
             elif self.trendType == 'poly':
                 xNorm = (x - np.median(x))/(np.max(x) - np.min(x))
                 #xNorm_var = pm.Deterministic("xNorm",xNorm)
@@ -337,9 +344,18 @@ class exo_model(object):
                         poly_eval = (poly_eval + poly_coeff[self.poly_ord - poly_ind - 1]) * xNorm
                 full_coeff = poly_coeff# np.append(poly_coeff,0)
                 
-                light_curves_final = pm.Deterministic("lc_final",light_curve + poly_eval)
+                light_curves_trended = pm.Deterministic("lc_trended",light_curve + poly_eval)
             else:
                 raise NotImplementedError("Only does polynomial for now")
+            
+            if self.expStart == True:
+                expTau = pm.Lognormal("exp_tau",mu=np.log(1e-3),sd=2)
+                expAmp = pm.Normal("exp_amp",mu=1e-3,sd=1e-2)
+                exp_eval = (1. - expAmp * tt.exp(-(x - np.min(x)) / expTau))
+                exp_model = pm.Deterministic('exp_model',exp_eval)
+                light_curves_final = pm.Deterministic("lc_final",light_curves_trended * exp_model)
+            else:
+                light_curves_final = pm.Deterministic("lc_final",light_curves_trended)
             
             ## the mean converts to parts per thousand
         
