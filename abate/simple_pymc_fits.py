@@ -110,6 +110,7 @@ class exo_model(object):
             self.mask = np.ones(len(self.x), dtype=bool)
         else:
             self.mask = mask
+        self.startMask = deepcopy(self.mask)
         
         self.sigReject = sigReject
         
@@ -504,7 +505,9 @@ class exo_model(object):
         Update the mask to exclude outliers. Use the MAP solution
         """
         resid = mxapDict['y'] - mxapDict['map_soln']['lc_final']
-        self.mask = np.abs(resid) < self.sigReject * mxapDict['yerr']
+        newMask = (np.abs(resid) < self.sigReject * mxapDict['yerr'])
+        ## make sure it doesn't add in any new points that were masked out at the start 
+        self.mask = newMask & self.startMask
         
     def find_mxap_with_clipping(self,modelDict,iterations=2):
         for oneIter in np.arange(iterations):
@@ -694,8 +697,12 @@ class exo_model(object):
     
         resid = modelDict['y'] - light_curve
         ax2.errorbar(modelDict['x'][self.mask],resid[self.mask],
-                     yerr=modelDict['yerr'][self.mask])
-    
+                     yerr=modelDict['yerr'][self.mask],fmt='.',alpha=0.7)
+        
+        x_bin, y_bin, y_bin_err = phot_pipeline.do_binning(modelDict['x'][self.mask],
+                                                           resid[self.mask],nBin=120)
+        plt.errorbar(x_bin,y_bin,fmt='o')
+        
         ax.set_ylabel("Flux (ppt)")
         ax.set_ylim(yLim[0],yLim[1])
     
@@ -797,6 +804,16 @@ class exo_model(object):
             varList.append('ecc')
             varList.append('omega')
         
+        if (self.fitSigma == True):
+            varnames.append('sigma_lc')
+            varList.append('sigma_lc')
+        
+        
+        if (self.expStart == True):
+            varnames.append('exp_tau')
+            varnames.append('exp_amp')
+            varList.append('exp_tau')
+            varList.append('exp_amp')
         
         ## check if variable is in posterior and only keep the ones that are
         available_vars = []
