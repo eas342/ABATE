@@ -54,7 +54,8 @@ class exo_model(object):
                  trendType=None,
                  poly_ord=None,
                  expStart=None,
-                 mask=None):
+                 mask=None,
+                 timeBin=None):
         #paramPath = 'parameters/spec_params/jwst/sim_mirage_007_grismc/spec_mirage_007_p015_full_emp_cov_weights_nchdas_mmm.yaml'
         #paramPath = 'parameters/spec_params/jwst/sim_mirage_007_grismc/spec_mirage_007_p016_full_emp_cov_weights_ncdhas_ppm.yaml'
         # paramPath = 'parameters/spec_params/jwst/sim_mirage_009_grismr_8grp/spec_mirage_009_p012_full_cov_highRN_nchdas_ppm_refpix.yaml'
@@ -134,6 +135,8 @@ class exo_model(object):
         self.poly_ord = poly_ord
         
         self.expStart = expStart
+        
+        self.timeBin = timeBin
     
     def check_phase(self):
         phase = (self.x - self.t0_lit[0]) / self.period_lit[0]
@@ -189,7 +192,7 @@ class exo_model(object):
                 #b = xo.distributions.ImpactParameter("b", ror=ror)
                 ecc_from_broadband = False
                 
-                x, y, yerr = self.x, self.y, self.yerr
+                x_in, y_in, yerr_in = self.x, self.y, self.yerr
                 specModel = False
                 waveName = 'broadband'
             else:
@@ -225,10 +228,36 @@ class exo_model(object):
                 
                     
                 
-                x, y, yerr = specInfo['x'], specInfo['y'], specInfo['yerr']
+                x_in, y_in, yerr_in = specInfo['x'], specInfo['y'], specInfo['yerr']
                 specModel = True
                 waveName = specInfo['waveName']
             
+            if self.timeBin is None:
+                x, y, yerr = x_in, y_in, yerr_in
+            else:
+                if self.timeBin < len(mask):
+                    self.full_res_mask = deepcopy(mask)
+                    x_to_bin = x_in[self.full_res_mask]
+                    y_to_bin = y_in[self.full_res_mask]
+                    mask = np.ones(self.timeBin,dtype=bool)
+                    self.mask = mask
+                    self.startMask = deepcopy(mask)
+                    
+
+                else:
+                    x_to_bin = x_in
+                    y_to_bin = y_in
+                
+                x, y, yerr = phot_pipeline.do_binning(x_in, y_in,nBin=self.timeBin)
+                
+                if specInfo == None:
+                    self.x_full_res = deepcopy(self.x)
+                    self.y_full_res = deepcopy(self.y)
+                    self.yerr_full_res = deepcopy(self.yerr)
+                    self.x = x
+                    self.y = y
+                    self.yerr = yerr
+                
             # if self.useOOTforError == True:
 #                 yerr = np.std(y[self.oot_start:self.oot_end]) * np.ones_like(yerr)
             if self.fitSigma == 'fit':
@@ -569,7 +598,7 @@ class exo_model(object):
         tnoise = self.spec.print_noise_wavebin(nbins=nbins)
         waveList = tnoise['Wave (mid)']
         for oneBin in bin_arr:
-            modelDict1 = self.build_model_spec(waveBinNum=oneBin)
+            modelDict1 = self.build_model_spec(waveBinNum=oneBin,nbins=nbins)
             waveName = "{}_nbins_{}".format(waveList[oneBin],nbins)
             if doInference == True:
                 resultDict = self.find_posterior(modelDict1,extraDescrip="_{}".format(waveName))
