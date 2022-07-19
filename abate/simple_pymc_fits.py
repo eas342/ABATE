@@ -608,8 +608,10 @@ class exo_model(object):
             else:
                 x1, y1, yerr1, waveName1 = self.get_wavebin(nbins=nbins,waveBinNum=oneBin)
                 mapDict = self.find_mxap_with_clipping(modelDict1)
-                self.plot_test_point(mapDict,extraDescrip='_{}'.format(waveName))
                 ror_list.append(mapDict['map_soln']['ror'])
+                resultDict = mapDict
+            
+            self.plot_test_point(resultDict,extraDescrip='_{}'.format(waveName))
         return ror_list, waveList
     
 
@@ -722,7 +724,7 @@ class exo_model(object):
         ax.errorbar(modelDict['x'][self.mask],modelDict['y'][self.mask],
                     yerr=modelDict['yerr'][self.mask],
                     fmt='.',zorder=1)
-        ax.plot(self.x,light_curve,linewidth=3,zorder=2)
+        ax.plot(modelDict['x'],light_curve,linewidth=3,zorder=2)
     
         resid = modelDict['y'] - light_curve
         ax2.errorbar(modelDict['x'][self.mask],resid[self.mask],
