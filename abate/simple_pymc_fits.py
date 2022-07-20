@@ -235,8 +235,12 @@ class exo_model(object):
             if self.timeBin is None:
                 x, y, yerr = x_in, y_in, yerr_in
             else:
-                if self.timeBin < len(mask):
-                    self.full_res_mask = deepcopy(mask)
+                if (self.timeBin < len(mask)) | hasattr(self,'full_res_mask'):
+                    if hasattr(self,'full_res_mask'):
+                        pass
+                    else:
+                        self.full_res_mask = deepcopy(mask)
+                    
                     x_to_bin = x_in[self.full_res_mask]
                     y_to_bin = y_in[self.full_res_mask]
                     mask = np.ones(self.timeBin,dtype=bool)
