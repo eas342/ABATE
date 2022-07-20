@@ -55,7 +55,8 @@ class exo_model(object):
                  poly_ord=None,
                  expStart=None,
                  mask=None,
-                 timeBin=None):
+                 timeBin=None,
+                 override_times=None):
         #paramPath = 'parameters/spec_params/jwst/sim_mirage_007_grismc/spec_mirage_007_p015_full_emp_cov_weights_nchdas_mmm.yaml'
         #paramPath = 'parameters/spec_params/jwst/sim_mirage_007_grismc/spec_mirage_007_p016_full_emp_cov_weights_ncdhas_ppm.yaml'
         # paramPath = 'parameters/spec_params/jwst/sim_mirage_009_grismr_8grp/spec_mirage_009_p012_full_cov_highRN_nchdas_ppm_refpix.yaml'
@@ -137,6 +138,7 @@ class exo_model(object):
         self.expStart = expStart
         
         self.timeBin = timeBin
+        self.override_times = override_times
     
     def check_phase(self):
         phase = (self.x - self.t0_lit[0]) / self.period_lit[0]
@@ -231,6 +233,11 @@ class exo_model(object):
                 x_in, y_in, yerr_in = specInfo['x'], specInfo['y'], specInfo['yerr']
                 specModel = True
                 waveName = specInfo['waveName']
+            
+            if self.override_times is None:
+                pass
+            else:
+                x_in = self.override_times
             
             if self.timeBin is None:
                 x, y, yerr = x_in, y_in, yerr_in
