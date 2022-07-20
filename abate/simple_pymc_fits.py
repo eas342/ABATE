@@ -248,7 +248,7 @@ class exo_model(object):
                     x_to_bin = x_in
                     y_to_bin = y_in
                 
-                x, y, yerr = phot_pipeline.do_binning(x_in, y_in,nBin=self.timeBin)
+                x, y, yerr = phot_pipeline.do_binning(x_to_bin, y_to_bin,nBin=self.timeBin)
                 
                 if specInfo == None:
                     self.x_full_res = deepcopy(self.x)
