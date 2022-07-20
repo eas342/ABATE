@@ -602,7 +602,6 @@ class exo_model(object):
             waveName = "{}_nbins_{}".format(waveList[oneBin],nbins)
             if doInference == True:
                 resultDict = self.find_posterior(modelDict1,extraDescrip="_{}".format(waveName))
-            
                 t = self.print_es_summary(resultDict,broadband=False,
                                      waveName=waveName)
             else:
@@ -851,8 +850,10 @@ class exo_model(object):
         available_varList = []
         for ind,checkVar in enumerate(varnames):
             if checkVar in resultDict['trace'].varnames:
-                available_vars.append(checkVar)
-                available_varList.append(varList[ind])
+                ## make sure it isn't already added to the list (such as exp_tau and exp_tau_log__ appearing twice)
+                if varList[ind] not in available_varList:
+                    available_vars.append(checkVar)
+                    available_varList.append(varList[ind])
             
         samples = pm.trace_to_dataframe(resultDict['trace'], varnames=available_vars)
     
