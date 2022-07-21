@@ -56,6 +56,8 @@ class exo_model(object):
                  expStart=None,
                  mask=None,
                  timeBin=None,
+                 wbin_starts=None,
+                 wbin_ends=None,
                  override_times=None):
         #paramPath = 'parameters/spec_params/jwst/sim_mirage_007_grismc/spec_mirage_007_p015_full_emp_cov_weights_nchdas_mmm.yaml'
         #paramPath = 'parameters/spec_params/jwst/sim_mirage_007_grismc/spec_mirage_007_p016_full_emp_cov_weights_ncdhas_ppm.yaml'
@@ -139,6 +141,9 @@ class exo_model(object):
         
         self.timeBin = timeBin
         self.override_times = override_times
+        
+        self.wbin_starts = wbin_starts
+        self.wbin_ends = wbin_ends
     
     def check_phase(self):
         phase = (self.x - self.t0_lit[0]) / self.period_lit[0]
@@ -462,8 +467,13 @@ class exo_model(object):
         
         if nbins == None:
             nbins = self.nbins
-        
-        t1, t2 = self.spec.get_wavebin_series(nbins=nbins)
+        if waveBinNum == 0:
+            recalculate = True
+        else:
+            recalculate = False
+        t1, t2 = self.spec.get_wavebin_series(nbins=nbins,
+                                              binStarts=self.wbin_starts,
+                                              binEnds=self.wbin_ends,recalculate=recalculate)
     
         x1 = np.ascontiguousarray(t1['Time'],dtype=np.float64)
         waveName = t1.colnames[1+waveBinNum]

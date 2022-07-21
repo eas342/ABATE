@@ -120,6 +120,22 @@ mask
 ~~~~
 A mask of points to include in the fitting. Useful if skipping some obviously bad points. If set to :code:`None`, no points are rejected initially, but may be rejected later depending on the :code:`sigReject` parameter.
 
+timeBin
+~~~~~~~
+An integer that says how many bins should be linearly spaced in time. This is just to speed up model evaluation time.
+
+override_times
+~~~~~~~~~~~~~~
+A numpy array that will override the time arrays. Useful if checking barycentric corrections.
+
+wbin_starts
+~~~~~~~~~~~
+You can manually specify the start pixels in the dispersion direction for wavelength bins, which is passed to `make_wavebin_series <https://tshirt.readthedocs.io/en/latest/modules.html#tshirt.pipeline.spec_pipeline.spec.make_wavebin_series>`_
+
+wbin_ends
+~~~~~~~~~
+You can manually specify the end pixels in the dispersion direction for wavelength bins, which is passed to `make_wavebin_series <https://tshirt.readthedocs.io/en/latest/modules.html#tshirt.pipeline.spec_pipeline.spec.make_wavebin_series>`_
+
 TShirt
 ------
 
