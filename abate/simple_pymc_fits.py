@@ -23,7 +23,7 @@ import corner
 from scipy import stats
 from copy import deepcopy
 #from celerite2 import terms, GaussianProcess
-
+import tqdm
 
 tshirtDir = spec_pipeline.baseDir
 
@@ -463,14 +463,19 @@ class exo_model(object):
 
 
 
-    def get_wavebin(self,nbins=None,waveBinNum=0):
+    def get_wavebin(self,nbins=None,waveBinNum=0,
+                    forceRecalculate=None):
         
         if nbins == None:
             nbins = self.nbins
-        if waveBinNum == 0:
-            recalculate = True
+        if forceRecalculate is None:
+            if waveBinNum == 0:
+                recalculate = True
+            else:
+                recalculate = False
         else:
-            recalculate = False
+            recalculate = forceRecalculate
+        
         t1, t2 = self.spec.get_wavebin_series(nbins=nbins,
                                               binStarts=self.wbin_starts,
                                               binEnds=self.wbin_ends,recalculate=recalculate)
@@ -482,14 +487,16 @@ class exo_model(object):
     
         return x1,y1,yerr1,waveName
 
-    def build_model_spec(self, mask=None,start=None,waveBinNum=0,nbins=None):
+    def build_model_spec(self, mask=None,start=None,waveBinNum=0,nbins=None,
+                         forceRecalculate=None):
         
         if nbins == None:
             nbins = self.nbins
         
         ## broadband fit
         broadband = ascii.read('fit_results/broadband_fit_{}.csv'.format(self.descrip))
-        x1, y1, yerr1, waveName1 = self.get_wavebin(nbins=nbins,waveBinNum=waveBinNum)
+        x1, y1, yerr1, waveName1 = self.get_wavebin(nbins=nbins,waveBinNum=waveBinNum,
+                                                    forceRecalculate=forceRecalculate)
     
         if mask is None:
             mask = np.ones(len(x1), dtype=bool)
@@ -616,7 +623,11 @@ class exo_model(object):
         
         bin_arr = np.arange(nbins)
         ror_list = []
-        tnoise = self.spec.print_noise_wavebin(nbins=nbins)
+        ## make sure the wavelength bins are established
+        t1, t2 = self.spec.get_wavebin_series(nbins=nbins,
+                                              binStarts=self.wbin_starts,
+                                              binEnds=self.wbin_ends,recalculate=True)
+        tnoise = self.spec.print_noise_wavebin(nbins=nbins,recalculate=False)
         waveList = tnoise['Wave (mid)']
         for oneBin in bin_arr:
             modelDict1 = self.build_model_spec(waveBinNum=oneBin,nbins=nbins)
@@ -634,7 +645,128 @@ class exo_model(object):
             self.plot_test_point(resultDict,extraDescrip='_{}'.format(waveName))
         return ror_list, waveList
     
+    
+    def collect_all_lc_and_fits(self,nbins=None,
+                                recalculate=False):
+        """
+        Collect all lightcurves, errors and model fits
+                                
+        Parameters
+        ----------
+        nbins: int
+            Number of wavelength bins
+        recalculate: bool
+            Recalculate the lightcurves? If False, will look for a previously
+                                saved FITS file
+        """
+        if nbins == None:
+            nbins = self.nbins
+        
+        outDir = os.path.join('fit_results',self.descrip)
+        if os.path.exists(outDir) == False:
+            os.makedirs(outDir)
+        outName = 'lc_2Dfits_{}_nbins_{}.fits'.format(self.descrip,nbins)
+        outPath = os.path.join(outDir,outName)
+        
+        if (os.path.exists(outPath) == False) | (recalculate == True):
+        
+            bin_arr = np.arange(nbins)
+            ror_list = []
+            tnoise = self.spec.print_noise_wavebin(nbins=nbins,recalculate=False)
+            waveList = tnoise['Wave (mid)']
+            x_list = []
+            y_list = []
+            yerr_list = []
+            model_list_astroph = []
+            model_list_sys = []
+            mask_list = []
+        
+            for oneBin in tqdm.tqdm(bin_arr):
+                modelDict1 = self.build_model_spec(waveBinNum=oneBin,nbins=nbins,
+                                                   forceRecalculate=False)
+                modelDict1['map_soln'] = 'placeholder'
+                waveName = "{}_nbins_{}".format(waveList[oneBin],nbins)
+                resultDict = self.find_posterior(modelDict1,extraDescrip="_{}".format(waveName))
+                x_list.append(modelDict1['x'])
+                y_list.append(modelDict1['y'])
+                yerr_list.append(modelDict1['yerr'])
+            
+                ## Get the fitted lightcurves
+                lc_dict_sys = self.get_lc_stats(resultDict,lc_var_name='lc_final')
+                model_list_sys.append(lc_dict_sys['median'])
+                lc_dict_astroph = self.get_lc_stats(resultDict,lc_var_name='light_curves')
+                model_list_astroph.append(lc_dict_astroph['median'])
+                
+                mask_list.append(modelDict1['mask'])
+        
+            result = {}
+            result['wave'] = np.array(waveList)
+            result['x'] = np.array(x_list)
+            result['y'] = np.array(y_list)
+            result['yerr'] = np.array(yerr_list)
+            result['mask'] = np.array(mask_list)
+            result['model_astroph'] = (np.array(model_list_astroph) + 1.) * 1000.
+            result['model_sys'] = np.array(model_list_sys)
+            
+            self.save_lc_fits2D(result,outPath)
+        else:
+            HDUList = fits.open(outPath)
+            result = {}
+            result['wave'] = HDUList['WAVE'].data
+            result['x'] = HDUList['TIME'].data
+            result['y'] = HDUList['FLUX'].data
+            result['yerr'] = HDUList['FLUXERR'].data
+            result['mask'] = HDUList['MASK'].data
+            result['model_astroph'] = HDUList['MODASTROPH'].data
+            result['model_sys'] = HDUList['MODSYS'].data
+            HDUList.close()
+        
+        return result
+    
+    def save_lc_fits2D(self,res,outPath):
+        nbins = len(res['wave'])
 
+        primHDU = fits.PrimaryHDU(None)
+        primHDU.header['DESCRIP'] = (self.descrip,'lc fit desscription')
+        primHDU.header['NWAVEB'] = (nbins,'Number of wavelength bins used')
+    
+        timeHDU = fits.ImageHDU(res['x'])
+        timeHDU.header['BUNIT'] = ('JD','Time in Julian Date, days')
+        timeHDU.name = 'TIME'
+    
+        fluxHDU = fits.ImageHDU(res['y'])
+        fluxHDU.header['BUNIT'] = ('ppt','Normalized Flux Units')
+        fluxHDU.name = 'FLUX'
+    
+        ferrHDU = fits.ImageHDU(res['yerr'])
+        ferrHDU.header['BUNIT'] = ('ppt','Normalized Flux Error Units')
+        ferrHDU.name = 'FLUXERR'
+        
+        maskHDU = fits.ImageHDU(np.array(res['mask'],dtype=int))
+        maskHDU.header['BUNIT'] = ('bool','0 for discard outlier, 1 for keep')
+        maskHDU.name = 'MASK'
+        
+        modAHDU = fits.ImageHDU(res['model_astroph'])
+        modAHDU.header['BUNIT'] = ('ppt','Normalized Flux Units')
+        modAHDU.name = 'MODASTROPH'
+        
+        modSysHDU = fits.ImageHDU(res['model_sys'])
+        modSysHDU.header['BUNIT'] = ('ppt','Normalized Flux Units')
+        modSysHDU.name = 'MODSYS'
+        
+
+        
+        waveHDU = fits.ImageHDU(res['wave'])
+        waveHDU.header['BUNIT'] = ('microns','units of wavelength')
+        waveHDU.name = 'WAVE'
+    
+        outHDU = fits.HDUList([primHDU,timeHDU,fluxHDU,ferrHDU,
+                              maskHDU,
+                              modAHDU,modSysHDU,waveHDU])
+    
+        print("Saving file to {}".format(outPath))
+        outHDU.writeto(outPath,overwrite=True)
+    
     def collect_spectrum(self,nbins=None,doInference=False):
         if nbins == None:
             nbins = self.nbins
@@ -976,7 +1108,11 @@ class exo_model(object):
         with resultDict['model']:
             xdataset = arviz.convert_to_dataset(resultDict['trace'])
         
-        final_lc2D = flatten_chains(xdataset[lc_var_name])
+        if lc_var_name == 'light_curves':
+            lcCube = xdataset[lc_var_name][:,:,:,0]
+        else:
+            lcCube = xdataset[lc_var_name]
+        final_lc2D = flatten_chains(lcCube)
         lc_dict = {}
         lc_dict['median'] = np.median(final_lc2D,axis=0)
         lc_dict['lim'] = np.percentile(final_lc2D,axis=0,q=[2.5,97.5])
