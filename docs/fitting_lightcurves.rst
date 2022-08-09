@@ -110,7 +110,16 @@ What of kind of trend should be fit to the data? Options are
 
 poly_ord
 ~~~~~~~~~
-What order polynomial should be fit to the baseline? Only matters if the :code:`trendType` is set to :code:`'poly'`
+What order polynomial should be fit to the baseline? Only matters if the :code:`trendType` is set to :code:`'poly'`.
+If poly_ord = 1, it is a linear fit, poly_ord=2 is a quadratic baseline.
+
+legacy_polynomial
+~~~~~~~~~~~~~~~~~
+Earlier version of ABATE used a polynomial model of the form :code:`f= f_0 + A x + B x**2 + C x**3`, etc, which is an additive polynomial.
+If :code:`legacy_polynomial` is True, it uses a polynomial like :code:`f= f_0 + A x + B x**2 + C x**3`.
+Later versions use a polynomial of the form :code:`f = f_0 * (1. + A x + B x**2 + C x**3)`, etc. which is a multiplicative polynomial. 
+If :code:`legacy_polynomial` is False, it uses a polynomial like :code:`f = f_0 * (1. + A x + B x**2 + C x**3)`.
+
 
 expStart
 ~~~~~~~~

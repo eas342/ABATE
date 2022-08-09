@@ -53,6 +53,7 @@ class exo_model(object):
                  oot_start=0,oot_end=100,
                  trendType=None,
                  poly_ord=None,
+                 legacy_polynomial=False,
                  expStart=None,
                  mask=None,
                  timeBin=None,
@@ -136,6 +137,7 @@ class exo_model(object):
         
         self.trendType = trendType
         self.poly_ord = poly_ord
+        self.legacy_polynomial = legacy_polynomial
         
         self.expStart = expStart
         
@@ -390,7 +392,10 @@ class exo_model(object):
                         poly_eval = (poly_eval + poly_coeff[self.poly_ord - poly_ind - 1]) * xNorm
                 full_coeff = poly_coeff# np.append(poly_coeff,0)
                 
-                light_curves_trended = pm.Deterministic("lc_trended",light_curve + poly_eval)
+                if self.legacy_polynomial == True:
+                    light_curves_trended = pm.Deterministic("lc_trended",light_curve + poly_eval)
+                else:
+                    light_curves_trended = pm.Deterministic("lc_trended",light_curve * (1.0 + poly_eval))
             else:
                 raise NotImplementedError("Only does polynomial for now")
             
