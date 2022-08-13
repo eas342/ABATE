@@ -639,6 +639,7 @@ class exo_model(object):
             waveName = "{}_nbins_{}".format(waveList[oneBin],nbins)
             if doInference == True:
                 resultDict = self.find_posterior(modelDict1,extraDescrip="_{}".format(waveName))
+                
                 t = self.print_es_summary(resultDict,broadband=False,
                                      waveName=waveName)
             else:
@@ -974,17 +975,24 @@ class exo_model(object):
         return resultDict
 
     def print_es_summary(self,resultDict,broadband=True,waveName=None):
-    
+        ## set up two variable arrays to grab posteriors from pandas_dataframe
+        ## varnames are the variable names used by pymc3
+        ## varList is what they will look like in the pandas dataframe
+        ## sometimes the pandas dataframe has multiple values for one
+        ## variable. For example, u_star goes to u_star__0 and u_star__1
         if broadband == True:
             varnames = ['mean','a','incl','t0','ror','depth','period']
             varList = ['mean','a','incl','t0','ror','depth','period']
-            if self.u_lit == None:
-                varnames.append('u_star')
-                varList.append('u_star__0')
-                varList.append('u_star__1')
+
         else:
             varnames = ['mean','a','incl','t0','ror','depth']
-            varList = varnames
+            varList = deepcopy(varnames)
+        
+        if self.u_lit == None:
+            varnames.append('u_star')
+            varnames.append('u_star')
+            varList.append('u_star__0')
+            varList.append('u_star__1')
         
         if (self.ecc != 'zero') & (broadband == True):
             varnames.append('ecc')
@@ -1009,12 +1017,15 @@ class exo_model(object):
         for ind,checkVar in enumerate(varnames):
             if checkVar in resultDict['trace'].varnames:
                 ## make sure it isn't already added to the list (such as exp_tau and exp_tau_log__ appearing twice)
+                ## But we want some things that appear twice like u_star__0 and u_star__1
                 if varList[ind] not in available_varList:
-                    available_vars.append(checkVar)
                     available_varList.append(varList[ind])
+                if checkVar not in available_vars:
+                    available_vars.append(checkVar)
             
         samples = pm.trace_to_dataframe(resultDict['trace'], varnames=available_vars)
-    
+        
+        
         names, means, stds = [], [], []
         for oneVar in available_varList:
             mean=np.mean(samples[oneVar])
@@ -1022,7 +1033,7 @@ class exo_model(object):
             #print("Var {},mean={}, std={}".format(oneVar,mean,std1))
             means.append(mean)
             stds.append(std1)
-    
+        
         t = Table()
         t['var name'] = available_varList
         t['mean'] = means
