@@ -59,6 +59,7 @@ class exo_model(object):
                  timeBin=None,
                  wbin_starts=None,
                  wbin_ends=None,
+                 nbins_resid=120,
                  override_times=None):
         #paramPath = 'parameters/spec_params/jwst/sim_mirage_007_grismc/spec_mirage_007_p015_full_emp_cov_weights_nchdas_mmm.yaml'
         #paramPath = 'parameters/spec_params/jwst/sim_mirage_007_grismc/spec_mirage_007_p016_full_emp_cov_weights_ncdhas_ppm.yaml'
@@ -146,6 +147,8 @@ class exo_model(object):
         
         self.wbin_starts = wbin_starts
         self.wbin_ends = wbin_ends
+        
+        self.nbins_resid = nbins_resid
     
     def check_phase(self):
         phase = (self.x - self.t0_lit[0]) / self.period_lit[0]
@@ -652,10 +655,28 @@ class exo_model(object):
         return ror_list, waveList
     
     
+    def collect_bb_fits(self):
+        """
+        Collect the broadband lightcurves, errors, and model fits
+        """
+        modelDict = self.build_model()
+        resultDict = self.find_posterior(modelDict)
+        t = Table()
+        t['x'] = resultDict['x']
+        t['y'] = resultDict['y']
+        t['yerr'] = resultDict['yerr']
+        t['mask'] = resultDict['mask']
+        lc_dict_sys = self.get_lc_stats(resultDict,lc_var_name='lc_final')
+        t['model_sys'] = lc_dict_sys['median']
+        lc_dict_astroph = self.get_lc_stats(resultDict,lc_var_name='light_curves')
+        t['model_astroph'] = (np.array(lc_dict_astroph['median']) + 1.) * 1000.
+        
+        return t
+    
     def collect_all_lc_and_fits(self,nbins=None,
                                 recalculate=False):
         """
-        Collect all lightcurves, errors and model fits
+        Collect all spectroscopic lightcurves, errors and model fits
                                 
         Parameters
         ----------
@@ -889,7 +910,7 @@ class exo_model(object):
                      yerr=modelDict['yerr'][self.mask],fmt='.',alpha=0.7)
         
         x_bin, y_bin, y_bin_err = phot_pipeline.do_binning(modelDict['x'][self.mask],
-                                                           resid[self.mask],nBin=120)
+                                                           resid[self.mask],nBin=self.nbins_resid)
         plt.errorbar(x_bin,y_bin,fmt='o')
         
         ax.set_ylabel("Flux (ppt)")
