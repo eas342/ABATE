@@ -408,6 +408,15 @@ class exo_model(object):
                 exp_eval = (1. - expAmp * tt.exp(-(x - np.min(x)) / expTau))
                 exp_model = pm.Deterministic('exp_model',exp_eval)
                 light_curves_final = pm.Deterministic("lc_final",light_curves_trended * exp_model)
+            elif self.expStart == 'double':
+                expTau1 = pm.Lognormal("exp_tau1",mu=np.log(1e-3),sd=2)
+                expAmp1 = pm.Normal("exp_amp1",mu=1e-3,sd=1e-2)
+                expTau2 = pm.Lognormal("exp_tau2",mu=np.log(1e-3),sd=2)
+                expAmp2 = pm.Normal("exp_amp2",mu=1e-2,sd=1e-2)
+                xrel = x - np.min(x)
+                exp_eval = (1. - expAmp1 * tt.exp(-(xrel) / expTau1) - expAmp2 * tt.exp(-(xrel) / expTau2))
+                exp_model = pm.Deterministic('exp_model',exp_eval)
+                light_curves_final = pm.Deterministic("lc_final",light_curves_trended * exp_model)
             else:
                 light_curves_final = pm.Deterministic("lc_final",light_curves_trended)
             
@@ -1031,6 +1040,9 @@ class exo_model(object):
             varnames.append('exp_amp')
             varList.append('exp_tau')
             varList.append('exp_amp')
+        elif (self.expStart == 'double'):
+            varnames.extend(['exp_tau1','exp_tau2','exp_amp1','exp_amp2'])
+            varList.extend(['exp_tau1,','exp_tau2','exp_amp1','exp_amp2'])
         
         ## check if variable is in posterior and only keep the ones that are
         available_vars = []
