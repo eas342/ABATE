@@ -933,8 +933,11 @@ class exo_model(object):
         lc_path = os.path.join('plots','lc_plots',self.descrip)
         if os.path.exists(lc_path) == False:
             os.makedirs(lc_path)
-        fig.savefig(os.path.join(lc_path,'lc_plot_{}.pdf'.format(combined_descrip)))
-        fig.savefig(os.path.join(lc_path,'lc_plot_{}.png'.format(combined_descrip)))
+        for suffix in ['.pdf','.png']:
+            outName='lc_plot_{}{}'.format(combined_descrip,suffix)
+            fig.savefig(os.path.join(lc_path,outName),
+                        bbox_inches='tight')
+        
     
         fig, ax = plt.subplots()
         ax.hist(resid,bins=np.linspace(-0.7,0.7,32),density=True)
@@ -1034,6 +1037,11 @@ class exo_model(object):
             varnames.append('sigma_lc')
             varList.append('sigma_lc')
         
+        
+        if self.trendType == 'poly':
+            for oneCoeff in np.arange(self.poly_ord):
+                varnames.append('poly_coeff')
+                varList.append('poly_coeff__{}'.format(oneCoeff))
         
         if (self.expStart == True):
             varnames.append('exp_tau')
