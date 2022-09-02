@@ -1093,7 +1093,38 @@ class exo_model(object):
     #     _ = pm.traceplot(resultDict['trace'], var_names=["mean","logr_pl","b","u_star","rho_gp"])
     #     plt.savefig('plots/pymc3/traceplot.pdf')
     #     plt.close()
-
+    ## placeholder text for printing info on coefficients
+    # def lookup(res,var):
+    #     pt = res['var name'] == var
+    #     return res[pt]
+    #
+    # def print_coefficients(posteriorResult,self):
+    #     if self.
+    #     mult_coeff = Table()
+    #     varNames = ['A','B','C']
+    #     mean_flux = lookup(posteriorResult,'mean')
+    #     A = mean_flux['mean'][0]
+    #     A_err = mean_flux['std'][0]
+    #
+    #     B_table = lookup(posteriorResult,'poly_coeff__0')
+    #     B = B_table['mean'][0] * A
+    #     B_err = np.sqrt((B_table['std'][0] * A)**2 + (A_err * B_table['mean'][0])**2)
+    #
+    #     C_table = lookup(posteriorResult,'poly_coeff__1')
+    #     C = C_table['mean'][0] * A
+    #     C_err = np.sqrt((C_table['std'][0] * A)**2 + (A_err * C_table['mean'][0])**2)
+    #
+    #     mult_coeff['var name'] = varNames
+    #     mult_coeff['Mean Val (ppt)'] = np.round([A,B,C],3)
+    #     mult_coeff['Err (ppt)'] = np.round([A_err,B_err,C_err],3)
+    #
+    #     time_length = (np.max(em4.x) - np.min(em4.x)) * 24.
+    #     mult_coeff['Absolute Units'] = ['(ppt/hr)^{}'.format(i) for i in range(3)]
+    #     mult_coeff['Val in Absolute Units'] = np.round(time_length**np.arange(3) * mult_coeff['Mean Val (ppt)'],3)
+    #
+    #     return mult_coeff
+    
+    
     def corner_plot(self,resultDict,compact=True,re_param_u=True,
                     truths=None,range=None):
         if re_param_u == True:
