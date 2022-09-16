@@ -358,6 +358,7 @@ class exo_model(object):
                                                  inc=incl)
                 sys = starry.System(star,planet,texp=self.texp)
                 light_curve = sys.flux(t=x) * mean
+                light_curves = pm.Deterministic("light_curves",light_curve) ## save astrophysical model
                 self.sys = sys
                 
                 # ## make sure that the limb darkening law is physical
