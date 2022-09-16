@@ -121,6 +121,10 @@ Later versions use a polynomial of the form :code:`f = f_0 * (1. + A x + B x**2 
 If :code:`legacy_polynomial` is False, it uses a polynomial like :code:`f = f_0 * (1. + A x + B x**2 + C x**3)`.
 
 
+eclipseGeometry
+~~~~~~~~~~~~~~~
+What is the geometry of the eclipse. Possibilities include "Transit", "Eclipse" or "PhaseCurve". If it's set as "Eclipse", the eclipse amplitude will be fit assuming no limb darkening. If it's "Transit", the limb darkening will either be fit or fixed depending on :code:`u_lit` and the transit radius will be fit.
+
 expStart
 ~~~~~~~~
 Should the beginning be fit with an exponential?

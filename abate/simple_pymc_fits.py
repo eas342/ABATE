@@ -48,6 +48,7 @@ class exo_model(object):
                  ld_law=default_ld,sigReject=10,
                  starry_ld_degree=default_starry_ld_deg,
                  cores=2,nchains=2,
+                 pymc3_init="adapt_full",
                  fitSigma=None,
                  nbins=20,
                  oot_start=0,oot_end=100,
@@ -60,7 +61,9 @@ class exo_model(object):
                  wbin_starts=None,
                  wbin_ends=None,
                  nbins_resid=120,
-                 override_times=None):
+                 override_times=None,
+                 eclipseGeometry="Transit",
+                 ror_prior=None):
         #paramPath = 'parameters/spec_params/jwst/sim_mirage_007_grismc/spec_mirage_007_p015_full_emp_cov_weights_nchdas_mmm.yaml'
         #paramPath = 'parameters/spec_params/jwst/sim_mirage_007_grismc/spec_mirage_007_p016_full_emp_cov_weights_ncdhas_ppm.yaml'
         # paramPath = 'parameters/spec_params/jwst/sim_mirage_009_grismr_8grp/spec_mirage_009_p012_full_cov_highRN_nchdas_ppm_refpix.yaml'
@@ -77,6 +80,11 @@ class exo_model(object):
         self.ld_law = ld_law
         self.cores = cores
         self.nchains = nchains
+        self.pymc3_init = pymc3_init
+        
+        self.eclipseGeometry = eclipseGeometry
+        self.ror_prior= ror_prior
+        
         if ld_law == 'quadratic':
             self.starry_ld_degree = None
         else:
@@ -168,17 +176,20 @@ class exo_model(object):
             # Parameters for the stellar properties
             mean = pm.Normal("mean", mu=1000., sd=10,testval=1000.)
             if self.u_lit == None:
-                if self.ld_law == 'quadratic':
-                    u_star = xo.QuadLimbDark("u_star",testval=[0.71,0.1])
+                if (self.eclipseGeometry == 'Transit') | (self.eclipseGeometry == 'PhaseCurve'):
+                    if self.ld_law == 'quadratic':
+                        u_star = xo.QuadLimbDark("u_star",testval=[0.71,0.1])
+                    else:
+                        # u_star = pm.Lognormal("u_star",mu=np.log(0.1), sigma=0.5,
+    #                                             shape=(default_starry_ld_deg,))
+                        ld_start = np.zeros(self.starry_ld_degree) + 0.1
+                        #ld_start[0] = 0.1
+                        testVal = ld_start
+                        u_star = pm.Normal("u_star",mu=ld_start,testval=ld_start,
+                                           sigma=2.0,
+                                           shape=(self.starry_ld_degree,))
                 else:
-                    # u_star = pm.Lognormal("u_star",mu=np.log(0.1), sigma=0.5,
-#                                             shape=(default_starry_ld_deg,))
-                    ld_start = np.zeros(self.starry_ld_degree) + 0.1
-                    #ld_start[0] = 0.1
-                    testVal = ld_start
-                    u_star = pm.Normal("u_star",mu=ld_start,testval=ld_start,
-                                       sigma=2.0,
-                                       shape=(self.starry_ld_degree,))
+                    u_star = 0.0
             else:
                 u_star = self.u_lit
         
@@ -198,7 +209,13 @@ class exo_model(object):
                 t0 = pm.Normal("t0", mu=self.t0_lit[0], sd=self.t0_lit[1])
                 #t0 = t0_lit[0]
                 
-                ror = pm.Lognormal("ror", mu=np.log(0.0822), sigma=0.5)
+                if self.eclipseGeometry == 'Eclipse':
+                    e_depth = pm.Normal("e_depth",mu=1e-3,sigma=2e-3)
+                    if self.ror_prior is None:
+                        raise Exception("Must have an ror prior for eclipse")
+                    ror = pm.Normal("ror",mu=self.ror_prior[0],sigma=self.ror_prior[1])
+                else:
+                    ror = pm.Lognormal("ror", mu=np.log(0.0822), sigma=0.5)
                 
                 #ror = pm.Deterministic("ror", tt.pow(10,logr_pl) / R_star[0])#r_star)
                 #b = xo.distributions.ImpactParameter("b", ror=ror)
@@ -224,9 +241,14 @@ class exo_model(object):
                 #                  sigma=get_from_t(broadband,'t0','std'))
                 #t0 = t0_lit[0]
                 
-                mean_r = get_from_t(broadband,'ror','mean')
-                
-                ror = pm.Lognormal("ror", mu=np.log(mean_r), sigma=0.3)
+                if self.eclipseGeometry == 'Eclipse':
+                    e_depth = pm.Normal("e_depth",mu=1e-3,sigma=2e-3)
+                    if self.ror_prior is None:
+                        raise Exception("Must have an ror prior for eclipse")
+                    ror = pm.Normal("ror",mu=self.ror_prior[0],sigma=self.ror_prior[1])
+                else:
+                     mean_r = get_from_t(broadband,'ror','mean')
+                     ror = pm.Lognormal("ror", mu=np.log(mean_r), sigma=0.3)
                 
                 if 'ecc' in broadband['var name']:
                     ecc_from_broadband = True
@@ -289,7 +311,10 @@ class exo_model(object):
             else:
                 sigma_lc = yerr[mask]
             
-            depth = pm.Deterministic('depth',tt.pow(ror,2))
+            if self.eclipseGeometry == 'Eclipse':
+                depth = pm.Deterministic('depth',e_depth * 1.0)
+            else:
+                depth = pm.Deterministic('depth',tt.pow(ror,2))
             
             if self.ecc == 'zero':
                 ecc = 0.0
@@ -312,7 +337,7 @@ class exo_model(object):
             # omega = np.pi/2.0
             # xo.eccentricity.kipping13("ecc_prior", fixed=True, observed=ecc)
             
-            if self.ld_law == 'quadratic':
+            if (self.ld_law == 'quadratic') & (self.eclipseGeometry == "Transit"):
                 # Orbit model
                 orbit = xo.orbits.KeplerianOrbit(
                     period=period,
@@ -347,7 +372,12 @@ class exo_model(object):
                 star_map[1:] = u_star
                 star = starry.Primary(star_map,m=m_star,r=1.0)
                 
-                planet = starry.kepler.Secondary(starry.Map(amp=0),
+                if self.eclipseGeometry == 'Transit':
+                    amp = 0
+                else:
+                    amp = e_depth
+                
+                planet = starry.kepler.Secondary(starry.Map(amp=amp),
                                                  m=0.0,
                                                  r=ror,
                                                  porb=period,
@@ -609,7 +639,11 @@ class exo_model(object):
         
         
         if 'light_curves' in mxapDict['map_soln']:
-            lc = mxapDict['map_soln']['light_curves'][:,0]
+            light_curves = mxapDict['map_soln']['light_curves']
+            if len(light_curves.shape) > 1:
+                lc = light_curves[:,0]
+            else:
+                lc = light_curves[:]
             t['model']= lc
         
         if 'lc_final' in mxapDict['map_soln']:
@@ -826,15 +860,20 @@ class exo_model(object):
         t.write(outName,overwrite=True)
         return t    
     
-    def plot_spec(self):
+    def plot_spec(self,closeFig=True):
         t = self.collect_spectrum()
         fig, ax = plt.subplots()
         ax.errorbar(t['wave'],t['depth'] * 1e6,yerr=t['depth err'] * 1e6)
         ax.set_ylabel('Depth (ppm)')
         ax.set_xlabel('Wavelength ($\mu$m) (needs updating)')
+        
+        make_sure_of_path('plots/spectra_pdf')
+        make_sure_of_path('plots/spectra_png')
+        
         fig.savefig('plots/spectra_pdf/spectrum_simple_{}.pdf'.format(self.descrip),bbox_inches='tight')
         fig.savefig('plots/spectra_png/spectrum_simple_{}.png'.format(self.descrip),bbox_inches='tight',dpi=250)
-        plt.close(fig)
+        if closeFig == True:
+            plt.close(fig)
 
     def plot_test_point(self,modelDict,extraDescrip='',yLim=[None,None],
                         yLim_resid=[None,None]):
@@ -992,7 +1031,7 @@ class exo_model(object):
                     start=resultDict['map_soln'], 
                     cores=self.cores, 
                     chains=self.nchains, 
-                    init="adapt_full", 
+                    init=self.pymc3_init, 
                     target_accept=0.9, 
                 )
             pm.save_trace(trace, directory =outDir, overwrite = True)
@@ -1080,6 +1119,9 @@ class exo_model(object):
         t['var name'] = available_varList
         t['mean'] = means
         t['std'] = stds
+        
+        if os.path.exists('fit_results') == False:
+            os.makedirs('fit_results')
         if broadband == True:
             t.write('fit_results/broadband_fit_{}.csv'.format(self.descrip),overwrite=True)
         else:
@@ -1289,6 +1331,15 @@ def get_from_t(tab,var,val):
     pts = tab['var name'] == var
     assert np.sum(pts) == 1
     return tab[pts][val][0]
+
+def make_sure_of_path(path):
+    """
+    Check if a path exists
+    If not, make it
+    """
+    if os.path.exists(path) == False:
+        os.makedirs(path)
+    
 # def get_limits_and_plot():
 #     resultDict = find_posterior()
 #     plot_trace(resultDict)
