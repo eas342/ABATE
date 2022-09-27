@@ -296,6 +296,11 @@ class exo_model(object):
                     y_to_bin = y_in
                 
                 x, y, yerr = phot_pipeline.do_binning(x_to_bin, y_to_bin,nBin=self.timeBin)
+                finite_y = np.isfinite(y)
+                
+                mask = mask & finite_y ## make sure to only include finite points
+                ## If there are gaps, they will make NaNs that give NaN for the likelihood
+                ## unless they are masked out
                 
                 if specInfo == None:
                     self.x_full_res = deepcopy(self.x)
