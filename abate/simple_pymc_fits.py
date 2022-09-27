@@ -221,7 +221,11 @@ class exo_model(object):
                 #b = xo.distributions.ImpactParameter("b", ror=ror)
                 ecc_from_broadband = False
                 
-                x_in, y_in, yerr_in = self.x, self.y, self.yerr
+                if hasattr(self,'x_full_res'):
+                    x_in, y_in, yerr_in = self.x_full_res, self.y_full_res, self.yerr_full_res
+                else:
+                    x_in, y_in, yerr_in = self.x, self.y, self.yerr
+                
                 specModel = False
                 waveName = 'broadband'
             else:
@@ -895,7 +899,8 @@ class exo_model(object):
         else:
             #testpt = modelDict['model'].test_point
             with modelDict['model']:
-                 light_curve = pmx.eval_in_model(self.sys.flux(t=mod.x))
+                 #light_curve = pmx.eval_in_model(self.sys.flux(t=self.x))
+                 light_curve = pmx.eval_in_model(modelDict['model']['lc_final'])
             
             map_soln = False
         # # Orbit model
