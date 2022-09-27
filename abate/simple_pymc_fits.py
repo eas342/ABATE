@@ -303,9 +303,12 @@ class exo_model(object):
                 ## unless they are masked out
                 
                 if specInfo == None:
-                    self.x_full_res = deepcopy(self.x)
-                    self.y_full_res = deepcopy(self.y)
-                    self.yerr_full_res = deepcopy(self.yerr)
+                    if hasattr(self,'x_full_res'):
+                        pass ## full resolution is already saved
+                    else:
+                        self.x_full_res = deepcopy(self.x)
+                        self.y_full_res = deepcopy(self.y)
+                        self.yerr_full_res = deepcopy(self.yerr)
                     self.x = x
                     self.y = y
                     self.yerr = yerr
@@ -1015,8 +1018,10 @@ class exo_model(object):
                  color='black',zorder=2)
         plt.show()
 
-    def find_posterior(self,modelDict=None,extraDescrip=''):
-    
+    def find_posterior(self,modelDict=None,extraDescrip='',recalculate=False):
+        """
+        Find the Posterior distribution with the No U Turns pymc3 sampler
+        """
         if modelDict is None:
             modelDict = self.build_model()
     
@@ -1030,7 +1035,7 @@ class exo_model(object):
         outDir = 'fit_traces/fits_{}{}'.format(self.descrip,extraDescrip)
         all_chains = glob.glob(os.path.join(outDir,'*'))
         
-        if len(all_chains) < self.nchains:
+        if (len(all_chains) < self.nchains) | (recalculate == True):
             if os.path.exists(outDir) == False:
                 os.makedirs(outDir)
             
