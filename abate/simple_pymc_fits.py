@@ -708,7 +708,7 @@ class exo_model(object):
                 resultDict = mapDict
             
             self.plot_test_point(resultDict,extraDescrip='_{}'.format(waveName))
-        return ror_list, waveList
+        return depth_list, waveList
     
     
     def collect_bb_fits(self):
