@@ -686,7 +686,7 @@ class exo_model(object):
             nbins = self.nbins
         
         bin_arr = np.arange(nbins)
-        ror_list = []
+        depth_list = []
         ## make sure the wavelength bins are established
         t1, t2 = self.spec.get_wavebin_series(nbins=nbins,
                                               binStarts=self.wbin_starts,
@@ -704,7 +704,7 @@ class exo_model(object):
             else:
                 x1, y1, yerr1, waveName1 = self.get_wavebin(nbins=nbins,waveBinNum=oneBin)
                 mapDict = self.find_mxap_with_clipping(modelDict1)
-                ror_list.append(mapDict['map_soln']['ror'])
+                depth_list.append(mapDict['map_soln']['depth'])
                 resultDict = mapDict
             
             self.plot_test_point(resultDict,extraDescrip='_{}'.format(waveName))
