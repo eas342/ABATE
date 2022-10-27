@@ -877,7 +877,7 @@ class exo_model(object):
         fig, ax = plt.subplots()
         ax.errorbar(t['wave'],t['depth'] * 1e6,yerr=t['depth err'] * 1e6)
         ax.set_ylabel('Depth (ppm)')
-        ax.set_xlabel('Wavelength ($\mu$m) (needs updating)')
+        ax.set_xlabel('Wavelength ($\mu$m)')
         
         make_sure_of_path('plots/spectra_pdf')
         make_sure_of_path('plots/spectra_png')
