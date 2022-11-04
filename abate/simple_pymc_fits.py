@@ -63,7 +63,8 @@ class exo_model(object):
                  nbins_resid=120,
                  override_times=None,
                  eclipseGeometry="Transit",
-                 ror_prior=None):
+                 ror_prior=None,
+                 equalize_bin_err=False):
         #paramPath = 'parameters/spec_params/jwst/sim_mirage_007_grismc/spec_mirage_007_p015_full_emp_cov_weights_nchdas_mmm.yaml'
         #paramPath = 'parameters/spec_params/jwst/sim_mirage_007_grismc/spec_mirage_007_p016_full_emp_cov_weights_ncdhas_ppm.yaml'
         # paramPath = 'parameters/spec_params/jwst/sim_mirage_009_grismr_8grp/spec_mirage_009_p012_full_cov_highRN_nchdas_ppm_refpix.yaml'
@@ -157,6 +158,7 @@ class exo_model(object):
         self.wbin_ends = wbin_ends
         
         self.nbins_resid = nbins_resid
+        self.equalize_bin_err = equalize_bin_err
     
     def check_phase(self):
         phase = (self.x - self.t0_lit[0]) / self.period_lit[0]
@@ -296,6 +298,9 @@ class exo_model(object):
                     y_to_bin = y_in
                 
                 x, y, yerr = phot_pipeline.do_binning(x_to_bin, y_to_bin,nBin=self.timeBin)
+                if self.equalize_bin_err == True:
+                    yerr = np.ones_like(yerr) * np.median(yerr)
+                
                 finite_y = np.isfinite(y)
                 
                 mask = mask & finite_y ## make sure to only include finite points
@@ -988,6 +993,9 @@ class exo_model(object):
         
         x_bin, y_bin, y_bin_err = phot_pipeline.do_binning(modelDict['x'][self.mask],
                                                            resid[self.mask],nBin=self.nbins_resid)
+        if self.equalize_bin_err == True:
+            y_bin_err = np.ones_like(y_bin_err) * np.median(y_bin_err)
+        
         plt.errorbar(x_bin,y_bin,fmt='o')
         
         ax.set_ylabel("Flux (ppt)")
