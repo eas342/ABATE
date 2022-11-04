@@ -863,9 +863,24 @@ class exo_model(object):
             dat = ascii.read(os.path.join('fit_results',self.descrip,fileName))
             depth.append(get_from_t(dat,'depth','mean'))
             depth_err.append(get_from_t(dat,'depth','std'))
-    
+
+        ## make sure the wavelength bins are established
+        t1, t2 = self.spec.get_wavebin_series(nbins=nbins,
+                                              binStarts=self.wbin_starts,
+                                              binEnds=self.wbin_ends,recalculate=True)
+        print("Making sure wavelength bins are established from bin parameters")
+        ## Use the edges of the pixels for the bin starts/ends
+        HDUList = fits.open(self.spec.wavebin_specFile(nbins=nbins))
+        dispIndicesTable = Table(HDUList['DISP INDICES'].data)
+        waveStart=np.round(self.spec.wavecal(dispIndicesTable['Bin Start']-0.5),5)
+        waveEnd=np.round(self.spec.wavecal(dispIndicesTable['Bin End']-0.5),5)
+        waveMid = np.round(self.spec.wavecal(dispIndicesTable['Bin Middle']-0.5),5)
+
         t = Table()
-        t['wave'] = waveList
+        t['wave start'] = waveStart
+        t['wave mid'] = waveMid
+        t['wave end'] = waveEnd
+        t['wave width'] = np.round(t['wave end'] - t['wave start'],4)
         t['depth'] = depth
         t['depth err'] = depth_err
         outName = os.path.join('fit_results',self.descrip,'spectrum_{}.csv'.format(self.descrip))
@@ -875,7 +890,7 @@ class exo_model(object):
     def plot_spec(self,closeFig=True):
         t = self.collect_spectrum()
         fig, ax = plt.subplots()
-        ax.errorbar(t['wave'],t['depth'] * 1e6,yerr=t['depth err'] * 1e6)
+        ax.errorbar(t['wave mid'],t['depth'] * 1e6,yerr=t['depth err'] * 1e6)
         ax.set_ylabel('Depth (ppm)')
         ax.set_xlabel('Wavelength ($\mu$m)')
         
