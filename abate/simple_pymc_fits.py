@@ -160,7 +160,12 @@ class exo_model(object):
         self.nbins_resid = nbins_resid
         self.equalize_bin_err = equalize_bin_err
 
-        self.specFileName = os.path.join('fit_results',self.descrip,'spectrum_{}.csv'.format(self.descrip))
+        self.broadband_fit_file = 'fit_results/broadband_fit_{}.csv'.format(self.descrip)
+        if pipeType == 'phot':
+            self.specFileName = None
+        else:
+            self.specFileName = os.path.join('fit_results',self.descrip,'spectrum_{}.csv'.format(self.descrip))
+
     
     def check_phase(self):
         phase = (self.x - self.t0_lit[0]) / self.period_lit[0]
@@ -561,7 +566,7 @@ class exo_model(object):
             nbins = self.nbins
         
         ## broadband fit
-        broadband = ascii.read('fit_results/broadband_fit_{}.csv'.format(self.descrip))
+        broadband = ascii.read(self.broadband_fit_file)
         x1, y1, yerr1, waveName1 = self.get_wavebin(nbins=nbins,waveBinNum=waveBinNum,
                                                     forceRecalculate=forceRecalculate)
     
@@ -1172,7 +1177,7 @@ class exo_model(object):
         if os.path.exists('fit_results') == False:
             os.makedirs('fit_results')
         if broadband == True:
-            t.write('fit_results/broadband_fit_{}.csv'.format(self.descrip),overwrite=True)
+            t.write(self.broadband_fit_file,overwrite=True)
         else:
             outDir = os.path.join('fit_results',self.descrip)
             if os.path.exists(outDir) == False:
