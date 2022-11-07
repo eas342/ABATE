@@ -159,6 +159,8 @@ class exo_model(object):
         
         self.nbins_resid = nbins_resid
         self.equalize_bin_err = equalize_bin_err
+
+        self.specFileName = os.path.join('fit_results',self.descrip,'spectrum_{}.csv'.format(self.descrip))
     
     def check_phase(self):
         phase = (self.x - self.t0_lit[0]) / self.period_lit[0]
@@ -855,7 +857,8 @@ class exo_model(object):
         print("Saving file to {}".format(outPath))
         outHDU.writeto(outPath,overwrite=True)
     
-    def collect_spectrum(self,nbins=None,doInference=False):
+    def collect_spectrum(self,nbins=None,doInference=False,
+                         redoWaveBinCheck=True):
         if nbins == None:
             nbins = self.nbins
         
@@ -872,7 +875,8 @@ class exo_model(object):
         ## make sure the wavelength bins are established
         t1, t2 = self.spec.get_wavebin_series(nbins=nbins,
                                               binStarts=self.wbin_starts,
-                                              binEnds=self.wbin_ends,recalculate=True)
+                                              binEnds=self.wbin_ends,
+                                              recalculate=redoWaveBinCheck)
         print("Making sure wavelength bins are established from bin parameters")
         ## Use the edges of the pixels for the bin starts/ends
         HDUList = fits.open(self.spec.wavebin_specFile(nbins=nbins))
@@ -888,12 +892,19 @@ class exo_model(object):
         t['wave width'] = np.round(t['wave end'] - t['wave start'],4)
         t['depth'] = depth
         t['depth err'] = depth_err
-        outName = os.path.join('fit_results',self.descrip,'spectrum_{}.csv'.format(self.descrip))
+        outName = self.specFileName
         t.write(outName,overwrite=True)
         return t    
     
-    def plot_spec(self,closeFig=True):
-        t = self.collect_spectrum()
+    def plot_spec(self,closeFig=True,redoWaveBinCheck=True):
+        """
+        Plot the spectrum from all the sampling runs
+        closeFig: bool
+            Close the figure?
+        redoWaveBinCheck: bool
+            Re-calculate the bin wavelength starts and ends?
+        """
+        t = self.collect_spectrum(redoWaveBinCheck=redoWaveBinCheck)
         fig, ax = plt.subplots()
         ax.errorbar(t['wave mid'],t['depth'] * 1e6,yerr=t['depth err'] * 1e6)
         ax.set_ylabel('Depth (ppm)')
@@ -908,7 +919,7 @@ class exo_model(object):
             plt.close(fig)
 
     def plot_test_point(self,modelDict,extraDescrip='',yLim=[None,None],
-                        yLim_resid=[None,None]):
+                        yLim_resid=[None,None],redoWaveBinCheck=True):
         """
         Check the guess lightcurve
     
