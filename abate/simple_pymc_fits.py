@@ -1185,7 +1185,34 @@ class exo_model(object):
             t.write(os.path.join(outDir,'{}_wave_{}_fit.csv'.format(self.descrip,waveName)),overwrite=True)
         return t
     
+    def lookup_result(self,resultDict,name):
+        """
+        Look up a value and an uncertainty from a result dictionary
+        """
+        row = resultDict['var name']==name
+        mean = resultDict['mean'][row][0]
+        stdev = resultDict['std'][row][0]
+        return mean, stdev
 
+    def get_tmid(self,resultDict):
+        """
+        Calculate the transit mid-point and uncertainty
+        """
+        bestPeriod,bestPeriod_err = self.lookup_result(resultDict,'period')
+        bestT0, bestT0_err = self.lookup_result(resultDict,'t0')
+        if self.eclipseGeometry == 'Transit':
+            refEpoch = bestT0
+        else:
+            if self.ecc == 'zero':
+                refEpoch = bestT0 + 0.5 * bestPeriod
+            else:
+                raise NotImplementedError
+        ntrans = np.round((np.median(self.x) - refEpoch)/bestPeriod)
+        
+        tmid = ntrans * bestPeriod + refEpoch
+        tmid_err = np.sqrt((ntrans * bestPeriod_err)**2 + bestT0_err**2)
+
+        return tmid, tmid_err
     # def plot_trace(resultDict):
     #     _ = pm.traceplot(resultDict['trace'], var_names=["mean","logr_pl","b","u_star","rho_gp"])
     #     plt.savefig('plots/pymc3/traceplot.pdf')
