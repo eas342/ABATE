@@ -295,9 +295,15 @@ class exo_model(object):
                     
                     x_to_bin = x_in[self.full_res_mask]
                     y_to_bin = y_in[self.full_res_mask]
-                    mask = np.ones(self.timeBin,dtype=bool)
-                    self.mask = mask
-                    self.startMask = deepcopy(mask)
+                    ## do nothing if the mask is meant for binned data
+                    if (self.timeBin == len(mask)):
+                        pass
+                    else:
+                        ## if the mask is not meant for binned data,
+                        ## include all points
+                        mask = np.ones(self.timeBin,dtype=bool)
+                        self.mask = mask
+                        self.startMask = deepcopy(mask)
                     
 
                 else:
@@ -353,8 +359,10 @@ class exo_model(object):
                 # omega = pm.Normal("ecc",mu=ecc_from_broadband_val[0],sigma=ecc_from_broadband_val[1])
             else:
                 #BoundedNormal = pm.Bound(pm.Normal, lower=0.0, upper=1.0)
-                ecc = pm.TruncatedNormal("ecc",mu=self.ecc[0],sigma=self.ecc[1],lower=0.0,upper=1.0)
-                omega = pm.Normal("omega",mu=self.omega[0],sigma=self.omega[1])
+                ecc = pm.TruncatedNormal("ecc",mu=self.ecc[0],sigma=self.ecc[1],
+                                         lower=0.0,upper=1.0,testval=self.ecc[0])
+                omega = pm.Normal("omega",mu=self.omega[0],sigma=self.omega[1],
+                                  testval=self.omega[0])
             # xo.eccentricity.kipping13("ecc_prior", fixed=True, observed=ecc)
         
             # ecc = 0.0
