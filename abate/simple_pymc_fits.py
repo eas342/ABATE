@@ -1269,12 +1269,15 @@ class exo_model(object):
             outName = 'cornerplot_compact.pdf'
         else:
             varnames = ["depth","a","incl","t0"]
+            if 'poly_coeff' in resultDict['model'].test_point:
+                varnames.append('poly_coeff')
             outName = 'cornerplot_full.pdf'
         
         if self.u_lit == None:
             varnames.append(limb_dark)
         
         samples = pm.trace_to_dataframe(resultDict['trace'], varnames=varnames)
+        
         #_ = corner.corner(samples)
         # truths = [0.00699764850849,None, None]
         #,range=[(0.0068,0.00740),(-2.35,-1.90),(-4.5,2.0)])
@@ -1402,7 +1405,7 @@ class exo_model(object):
         self.plot_test_point(mapDict)
         postDict = self.find_posterior(mapDict)
         self.print_es_summary(postDict)
-        self.corner_plot(postDict)
+        self.corner_plot(postDict,compact=False)
         
         return postDict
 
