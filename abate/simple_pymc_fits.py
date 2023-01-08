@@ -64,12 +64,17 @@ class exo_model(object):
                  override_times=None,
                  eclipseGeometry="Transit",
                  ror_prior=None,
-                 equalize_bin_err=False):
+                 equalize_bin_err=False,
+                 fit_t0_spec=False):
         #paramPath = 'parameters/spec_params/jwst/sim_mirage_007_grismc/spec_mirage_007_p015_full_emp_cov_weights_nchdas_mmm.yaml'
         #paramPath = 'parameters/spec_params/jwst/sim_mirage_007_grismc/spec_mirage_007_p016_full_emp_cov_weights_ncdhas_ppm.yaml'
         # paramPath = 'parameters/spec_params/jwst/sim_mirage_009_grismr_8grp/spec_mirage_009_p012_full_cov_highRN_nchdas_ppm_refpix.yaml'
         # descrip = 'grismr_001'
-    
+        """
+        Set up a starry/exoplanet lightcurve fitting object
+        """
+
+
         self.paramPath = paramPath
         self.descrip = descrip
         self.t0_lit = t0_lit
@@ -132,6 +137,7 @@ class exo_model(object):
         # Orbital parameters for the planet, Sanchis-ojeda 2015
         self.period_lit = period_lit
 
+        self.fit_t0_spec = fit_t0_spec
         #t0_lit = 2459491.323591, 0.000035 #GRISMC has different one for some reason
         #t0_lit = 2459560.576056, 0.000035 # GRISMR 
         #t0_lit = 2459560.576056, 0.000035
@@ -249,7 +255,11 @@ class exo_model(object):
                 period = get_from_t(broadband,'period','mean')
                 #period = pm.Normal("period",mu=self.period_lit[0],sd=self.period_lit[1])
                 
-                t0 = get_from_t(broadband,'t0','mean')
+                t0_broadband = get_from_t(broadband,'t0','mean')
+                if self.fit_t0_spec == True:
+                    t0 = pm.Normal("t0",mu=t0_broadband,sd=self.t0_lit[1])
+                else:
+                    t0 = t0_broadband
                 # t0 = pm.Normal("t0", mu=get_from_t(broadband,'t0','mean'),
                 #                  sigma=get_from_t(broadband,'t0','std'))
                 #t0 = t0_lit[0]
@@ -879,11 +889,17 @@ class exo_model(object):
         depth, depth_err = [], []
         tnoise = self.spec.print_noise_wavebin(nbins=nbins)
         waveList = tnoise['Wave (mid)']
+        if self.fit_t0_spec == True:
+            t0, t0_err = [], []
         for oneBin in bin_arr:
             fileName = "{}_wave_{}_nbins_{}_fit.csv".format(self.descrip,waveList[oneBin],nbins)
             dat = ascii.read(os.path.join('fit_results',self.descrip,fileName))
             depth.append(get_from_t(dat,'depth','mean'))
             depth_err.append(get_from_t(dat,'depth','std'))
+            if self.fit_t0_spec == True:
+                t0.append(get_from_t(dat,'t0','mean'))
+                t0_err.append(get_from_t(dat,'t0','std'))
+               
 
         ## make sure the wavelength bins are established
         t1, t2 = self.spec.get_wavebin_series(nbins=nbins,
@@ -905,6 +921,8 @@ class exo_model(object):
         t['wave width'] = np.round(t['wave end'] - t['wave start'],4)
         t['depth'] = depth
         t['depth err'] = depth_err
+        t['t0'] = t0
+        t['t0 err'] = t0_err
         outName = self.specFileName
         t.write(outName,overwrite=True)
         return t    
@@ -1273,7 +1291,7 @@ class exo_model(object):
                 varnames.append('poly_coeff')
             outName = 'cornerplot_full.pdf'
         
-        if self.u_lit == None:
+        if (self.u_lit == None) & (self.eclipseGeometry == 'Transit'):
             varnames.append(limb_dark)
         
         samples = pm.trace_to_dataframe(resultDict['trace'], varnames=varnames)
