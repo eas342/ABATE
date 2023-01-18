@@ -11,6 +11,9 @@ import pdb
 
 import exoplanet as xo
 import starry
+import theano
+theano.config.gcc__cxxflags += " -fexceptions"
+
 import pymc3 as pm
 import theano.tensor as tt
 
