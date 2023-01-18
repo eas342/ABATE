@@ -921,8 +921,9 @@ class exo_model(object):
         t['wave width'] = np.round(t['wave end'] - t['wave start'],4)
         t['depth'] = depth
         t['depth err'] = depth_err
-        t['t0'] = t0
-        t['t0 err'] = t0_err
+        if self.fit_t0_spec == True:
+            t['t0'] = t0
+            t['t0 err'] = t0_err
         outName = self.specFileName
         t.write(outName,overwrite=True)
         return t    
