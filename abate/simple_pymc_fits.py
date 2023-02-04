@@ -180,6 +180,27 @@ class exo_model(object):
         phase = (self.x - self.t0_lit[0]) / self.period_lit[0]
         return phase
 
+    def inspect_physOrb_params(self,paramVal):
+        """
+        Figure out if the supplied physical or orbital parameter
+        is fixed or a variable.
+
+        Parameters
+        ----------
+        paramVal: string name of parameter
+            The name of the physical or orbital parameter
+        
+        Returns
+        -------
+        paramLen, int
+            The length of the value. 1 is fixed, 2 is variable
+        """
+        if (type(paramVal) == float) | (type(paramVal) == int) | (type(paramVal) == np.float64):
+            paramLen = 1
+        else:
+            paramLen = len(paramVal)
+        return paramLen
+
     def build_model(self, specInfo=None):
         """
         Build a pymc3 model
@@ -212,8 +233,15 @@ class exo_model(object):
                 u_star = self.u_lit
         
             if specInfo == None:
-                a = pm.Normal("a",mu=self.a_lit[0],sigma=self.a_lit[1],testval=self.a_lit[0])
-                incl = pm.Normal("incl",mu=self.inc_lit[0],sigma=self.inc_lit[1],testval=self.inc_lit[0])
+                if self.inspect_physOrb_params(self.a_lit) == 1:
+                    a = self.a_lit
+                else:
+                    a = pm.Normal("a",mu=self.a_lit[0],sigma=self.a_lit[1],testval=self.a_lit[0])
+                
+                if self.inspect_physOrb_params(self.inc_lit) == 1:
+                    incl = self.inc_lit
+                else:
+                    incl = pm.Normal("incl",mu=self.inc_lit[0],sigma=self.inc_lit[1],testval=self.inc_lit[0])
                 # BoundedNormal = pm.Bound(pm.Normal, lower=0, upper=3)
                 # m_star = BoundedNormal(
                 #     "m_star", mu=M_star[0], sd=M_star[1]
@@ -222,9 +250,15 @@ class exo_model(object):
                 #     "r_star", mu=R_star[0], sd=R_star[1]
                 # )
                 
-                period = pm.Normal("period",mu=self.period_lit[0],sd=self.period_lit[1])
+                if self.inspect_physOrb_params(self.period_lit) == 1:
+                    period = self.period_lit
+                else:
+                    period = pm.Normal("period",mu=self.period_lit[0],sd=self.period_lit[1])
                 
-                t0 = pm.Normal("t0", mu=self.t0_lit[0], sd=self.t0_lit[1])
+                if self.inspect_physOrb_params(self.t0_lit) == 1:
+                    t0 = self.t0_lit
+                else:
+                    t0 = pm.Normal("t0", mu=self.t0_lit[0], sd=self.t0_lit[1])
                 #t0 = t0_lit[0]
                 
                 if self.eclipseGeometry == 'Eclipse':
@@ -248,17 +282,29 @@ class exo_model(object):
                 waveName = 'broadband'
             else:
                 broadband = specInfo['broadband']
-                a = get_from_t(broadband,'a','mean')
+                if self.inspect_physOrb_params(self.a_lit) == 1:
+                    a = self.a_lit
+                else:
+                    a = get_from_t(broadband,'a','mean')
                 # a = pm.Normal("a",mu=get_from_t(broadband,'a','mean'),
 #                               sigma=get_from_t(broadband,'a','std'))
-                incl = get_from_t(broadband,'incl','mean')
+                if self.inspect_physOrb_params(self.inc_lit) == 1:
+                    incl = self.inc_lit
+                else:
+                    incl = get_from_t(broadband,'incl','mean')
                 # incl = pm.Normal("incl",mu=get_from_t(broadband,'incl','mean'),
 #                                  sigma=get_from_t(broadband,'incl','std'))
-                
-                period = get_from_t(broadband,'period','mean')
+                if self.inspect_physOrb_params(self.period_lit) == 1:
+                    period = self.period_lit
+                else:
+                    period = get_from_t(broadband,'period','mean')
                 #period = pm.Normal("period",mu=self.period_lit[0],sd=self.period_lit[1])
                 
-                t0_broadband = get_from_t(broadband,'t0','mean')
+                if self.inspect_physOrb_params(self.t0_lit) == 1:
+                    t0_broadband = self.t0_lit
+                else:
+                    t0_broadband = get_from_t(broadband,'t0','mean')
+                
                 if self.fit_t0_spec == True:
                     t0 = pm.Normal("t0",mu=t0_broadband,sd=self.t0_lit[1])
                 else:
@@ -284,7 +330,7 @@ class exo_model(object):
                     
                 else:
                     ecc_from_broadband = False
-                    ecc_from_broadband_val = (0, 0.02)
+                    ecc_from_broadband_val = (np.nan,np.nan)
                 
                     
                 
@@ -372,10 +418,16 @@ class exo_model(object):
                 # omega = pm.Normal("ecc",mu=ecc_from_broadband_val[0],sigma=ecc_from_broadband_val[1])
             else:
                 #BoundedNormal = pm.Bound(pm.Normal, lower=0.0, upper=1.0)
-                ecc = pm.TruncatedNormal("ecc",mu=self.ecc[0],sigma=self.ecc[1],
-                                         lower=0.0,upper=1.0,testval=self.ecc[0])
-                omega = pm.Normal("omega",mu=self.omega[0],sigma=self.omega[1],
-                                  testval=self.omega[0])
+                if self.inspect_physOrb_params(self.ecc) == 1:
+                    ecc = self.ecc
+                else:
+                    ecc = pm.TruncatedNormal("ecc",mu=self.ecc[0],sigma=self.ecc[1],
+                                            lower=0.0,upper=1.0,testval=self.ecc[0])
+                if self.inspect_physOrb_params(self.omega) == 1:
+                    omega = self.omega
+                else:
+                    omega = pm.Normal("omega",mu=self.omega[0],sigma=self.omega[1],
+                                      testval=self.omega[0])
             # xo.eccentricity.kipping13("ecc_prior", fixed=True, observed=ecc)
         
             # ecc = 0.0
@@ -1290,7 +1342,12 @@ class exo_model(object):
             varnames = ["depth"]
             outName = 'cornerplot_compact.pdf'
         else:
-            varnames = ["depth","a","incl","t0"]
+            
+            potential_varnames = ["depth","a","incl","t0"]
+            varnames = []
+            for oneVarName in potential_varnames:
+                if oneVarName in resultDict['trace'].varnames:
+                    varnames.append(oneVarName)
             if 'poly_coeff' in resultDict['model'].test_point:
                 varnames.append('poly_coeff')
             outName = 'cornerplot_full.pdf'
