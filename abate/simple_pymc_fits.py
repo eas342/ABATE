@@ -979,6 +979,9 @@ class exo_model(object):
         if self.fit_t0_spec == True:
             t['t0'] = t0
             t['t0 err'] = t0_err
+        t['pxbin start'] = dispIndicesTable['Bin Start']
+        t['pxbin end'] = dispIndicesTable['Bin End']
+        t['pxbin mid'] = dispIndicesTable['Bin Middle']
         outName = self.specFileName
         t.write(outName,overwrite=True)
         return t    
