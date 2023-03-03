@@ -68,6 +68,7 @@ class exo_model(object):
                  eclipseGeometry="Transit",
                  ror_prior=None,
                  equalize_bin_err=False,
+                 fixLDu1=False,
                  fit_t0_spec=False):
         #paramPath = 'parameters/spec_params/jwst/sim_mirage_007_grismc/spec_mirage_007_p015_full_emp_cov_weights_nchdas_mmm.yaml'
         #paramPath = 'parameters/spec_params/jwst/sim_mirage_007_grismc/spec_mirage_007_p016_full_emp_cov_weights_ncdhas_ppm.yaml'
@@ -87,6 +88,7 @@ class exo_model(object):
         self.ecc = ecc
         self.omega = omega
         self.ld_law = ld_law
+        self.fixLDu1 = fixLDu1
         self.cores = cores
         self.nchains = nchains
         self.pymc3_init = pymc3_init
@@ -214,7 +216,10 @@ class exo_model(object):
             
             # Parameters for the stellar properties
             mean = pm.Normal("mean", mu=1000., sd=10,testval=1000.)
-            if self.u_lit == None:
+
+            if (self.fixLDu1 == True) & (specInfo is not None):
+                self.u_lit = 'special'
+            elif self.u_lit == None:
                 if (self.eclipseGeometry == 'Transit') | (self.eclipseGeometry == 'PhaseCurve'):
                     if self.ld_law == 'quadratic':
                         u_star = xo.QuadLimbDark("u_star",testval=[0.71,0.1])
@@ -280,6 +285,8 @@ class exo_model(object):
                 
                 specModel = False
                 waveName = 'broadband'
+
+
             else:
                 broadband = specInfo['broadband']
                 if self.inspect_physOrb_params(self.a_lit) == 1:
@@ -332,7 +339,15 @@ class exo_model(object):
                     ecc_from_broadband = False
                     ecc_from_broadband_val = (np.nan,np.nan)
                 
-                    
+                if self.fixLDu1 == True:
+                    assert(self.ld_law=='quadratic')
+                    ## Make sure u1 is fixed
+                    u1_use = get_from_t(broadband,'u_star__0','mean')
+                    ## Kipping et al. 2013 equation 8
+                    u2_use = pm.Uniform('u_star__1',lower=-0.5 * u1_use,upper=1. - u1_use)
+                    u1 = pm.Deterministic('u_star__0',u1_use)
+                    u_star = [u1,u2_use]
+
                 
                 x_in, y_in, yerr_in = specInfo['x'], specInfo['y'], specInfo['yerr']
                 specModel = True
