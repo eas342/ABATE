@@ -936,25 +936,44 @@ class exo_model(object):
         outHDU.writeto(outPath,overwrite=True)
     
     def collect_spectrum(self,nbins=None,doInference=False,
-                         redoWaveBinCheck=True):
+                         redoWaveBinCheck=True,
+                         gatherAll=False):
         if nbins == None:
             nbins = self.nbins
         
         bin_arr = np.arange(nbins)
-        depth, depth_err = [], []
+        
         tnoise = self.spec.print_noise_wavebin(nbins=nbins)
         waveList = tnoise['Wave (mid)']
+
+        if gatherAll == True:
+            spec_dict = {}
+            spec_dict_err = {}
+        else:
+            depth, depth_err = [], []
+        
         if self.fit_t0_spec == True:
             t0, t0_err = [], []
-        for oneBin in bin_arr:
+        for ind,oneBin in enumerate(bin_arr):
             fileName = "{}_wave_{}_nbins_{}_fit.csv".format(self.descrip,waveList[oneBin],nbins)
             dat = ascii.read(os.path.join('fit_results',self.descrip,fileName))
-            depth.append(get_from_t(dat,'depth','mean'))
-            depth_err.append(get_from_t(dat,'depth','std'))
+            if gatherAll == True:
+                if ind == 0:
+                    all_vars = dat['var name']
+                    for oneVar in all_vars:
+                        spec_dict[oneVar] = []
+                        spec_dict_err[oneVar] = []
+                for oneVar in all_vars:
+                    spec_dict[oneVar].append(get_from_t(dat,oneVar,'mean'))
+                    spec_dict_err[oneVar].append(get_from_t(dat,oneVar,'std'))
+            else:
+                depth.append(get_from_t(dat,'depth','mean'))
+                depth_err.append(get_from_t(dat,'depth','std'))
+            
             if self.fit_t0_spec == True:
                 t0.append(get_from_t(dat,'t0','mean'))
                 t0_err.append(get_from_t(dat,'t0','std'))
-               
+
 
         ## make sure the wavelength bins are established
         t1, t2 = self.spec.get_wavebin_series(nbins=nbins,
@@ -974,11 +993,17 @@ class exo_model(object):
         t['wave mid'] = waveMid
         t['wave end'] = waveEnd
         t['wave width'] = np.round(t['wave end'] - t['wave start'],4)
-        t['depth'] = depth
-        t['depth err'] = depth_err
-        if self.fit_t0_spec == True:
-            t['t0'] = t0
-            t['t0 err'] = t0_err
+
+        if gatherAll == True:
+            for oneVar in all_vars:
+                t[oneVar] = spec_dict[oneVar]
+                t[oneVar+' err'] = spec_dict_err[oneVar]
+        else:
+            t['depth'] = depth
+            t['depth err'] = depth_err
+            if self.fit_t0_spec == True:
+                t['t0'] = t0
+                t['t0 err'] = t0_err
         t['pxbin start'] = dispIndicesTable['Bin Start']
         t['pxbin end'] = dispIndicesTable['Bin End']
         t['pxbin mid'] = dispIndicesTable['Bin Middle']
