@@ -1050,6 +1050,26 @@ class exo_model(object):
         if closeFig == True:
             plt.close(fig)
 
+    def plot_param_spec(self,param,redoWaveBinCheck=True):
+        """
+        Plot the spectrum of different parameters in the fitting
+        (e.g.) linear slope
+        """
+        make_sure_of_path('plots/param_spec_png')
+        fig, ax = plt.subplots()
+        t = self.collect_spectrum(gatherAll=True,redoWaveBinCheck=redoWaveBinCheck)
+        xval = t['wave mid']
+        yval = t[param]
+        yval_err = t[param + ' err']
+        ax.errorbar(xval,yval,yerr=yval_err)
+        ax.set_xlabel("Wavelength (ppm)")
+        ax.set_ylabel(param)
+        specPath = 'plots/param_spec_png/{}_spec_{}.png'.format(param,self.descrip)
+        print("Saving file to {}".format(specPath))
+        fig.savefig(specPath,
+                    bbox_inches='tight',dpi=150)
+
+
     def plot_test_point(self,modelDict,extraDescrip='',yLim=[None,None],
                         yLim_resid=[None,None],redoWaveBinCheck=True):
         """
