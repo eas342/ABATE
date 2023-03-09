@@ -218,7 +218,7 @@ class exo_model(object):
             mean = pm.Normal("mean", mu=1000., sd=10,testval=1000.)
 
             if (self.fixLDu1 == True) & (specInfo is not None):
-                self.u_lit = 'special'
+                u_star = 'special'
             elif self.u_lit == None:
                 if (self.eclipseGeometry == 'Transit') | (self.eclipseGeometry == 'PhaseCurve'):
                     if self.ld_law == 'quadratic':
@@ -345,8 +345,10 @@ class exo_model(object):
                     u1_use = get_from_t(broadband,'u_star__0','mean')
                     ## Kipping et al. 2013 equation 8
                     u2_use = pm.Uniform('u_star__1',lower=-0.5 * u1_use,upper=1. - u1_use)
-                    u1 = pm.Deterministic('u_star__0',u1_use)
-                    u_star = [u1,u2_use]
+                    
+                    #u1 = pm.Deterministic('u_star__0',u1_use)
+                    
+                    u_star = [u1_use,u2_use]
 
                 
                 x_in, y_in, yerr_in = specInfo['x'], specInfo['y'], specInfo['yerr']
@@ -1242,9 +1244,14 @@ class exo_model(object):
         
         if self.u_lit == None:
             varnames.append('u_star')
-            varnames.append('u_star')
             varList.append('u_star__0')
+            varnames.append('u_star')
             varList.append('u_star__1')
+
+            if (self.fixLDu1 == True) & (broadband==False):
+                ## I named the variable here manually
+                varnames.append('u_star__1')
+                varList.append('u_star__1')
         
         if (self.ecc != 'zero') & (broadband == True):
             varnames.append('ecc')
@@ -1284,7 +1291,6 @@ class exo_model(object):
                     available_vars.append(checkVar)
             
         samples = pm.trace_to_dataframe(resultDict['trace'], varnames=available_vars)
-        
         
         names, means, stds = [], [], []
         for oneVar in available_varList:
@@ -1531,9 +1537,10 @@ class exo_model(object):
         
         return postDict
 
-    def run_all(self):
+    def run_all(self,plotMxapFirst=True):
         self.run_all_broadband()
-        ror_list, wavelist = self.find_spectrum(doInference=False) ## plot max a priori sol
+        if plotMxapFirst == True:
+            ror_list, wavelist = self.find_spectrum(doInference=False) ## plot max a priori sol
         ror_list, wavelist = self.find_spectrum(doInference=True)
         self.plot_spec()
     
