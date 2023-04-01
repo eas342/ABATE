@@ -130,7 +130,7 @@ class exo_model(object):
         self.y = np.ascontiguousarray(t1[t1.colnames[1]] * 1000.) ## convert to ppt
         self.yerr = np.ascontiguousarray(t2[t2.colnames[1]] * 1000.) ## convert to ppt
 
-        self.texp = np.min(np.diff(self.x))
+        self.texp = np.median(np.diff(self.x))
         if mask is None:
             self.mask = np.ones(len(self.x), dtype=bool)
         else:
@@ -266,7 +266,7 @@ class exo_model(object):
                     t0 = pm.Normal("t0", mu=self.t0_lit[0], sd=self.t0_lit[1])
                 #t0 = t0_lit[0]
                 
-                if self.eclipseGeometry == 'Eclipse':
+                if (self.eclipseGeometry == 'Eclipse') | (self.eclipseGeometry == 'PhaseCurve'):
                     e_depth = pm.Normal("e_depth",mu=1e-3,sigma=2e-3)
                     if self.ror_prior is None:
                         raise Exception("Must have an ror prior for eclipse")
