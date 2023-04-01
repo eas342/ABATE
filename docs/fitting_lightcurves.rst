@@ -101,6 +101,10 @@ ld_law
 
 This variable is a string, set to either 'quadratic' or 'multiterm', which determines the length of the list for u_lit.
 
+fixLDu1
+~~~~~~~
+For spectroscopic fits, fix the Limb Darkening coefficient u1 at the posterior value from the broadband.
+
 trendType
 ~~~~~~~~~
 What of kind of trend should be fit to the data? Options are
