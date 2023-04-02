@@ -60,6 +60,7 @@ class exo_model(object):
                  legacy_polynomial=False,
                  expStart=None,
                  mask=None,
+                 offsetMask=None,
                  timeBin=None,
                  wbin_starts=None,
                  wbin_ends=None,
@@ -136,6 +137,7 @@ class exo_model(object):
         else:
             self.mask = mask
         self.startMask = deepcopy(self.mask)
+        self.offsetMask = offsetMask
         
         self.sigReject = sigReject
         
@@ -368,7 +370,8 @@ class exo_model(object):
                         pass
                     else:
                         self.full_res_mask = deepcopy(mask)
-                    
+
+
                     x_to_bin = x_in[self.full_res_mask]
                     y_to_bin = y_in[self.full_res_mask]
                     ## do nothing if the mask is meant for binned data
@@ -406,6 +409,20 @@ class exo_model(object):
                     self.x = x
                     self.y = y
                     self.yerr = yerr
+
+                if self.offsetMask is not None:
+                    if hasattr(self,'full_res_offsetMask') == True:
+                        pass
+                    else:
+                        self.full_res_offsetMask = deepcopy(self.offsetMask)
+                        offsetMask_x, offsetMask_y, offsetMask_yerr = phot_pipeline.do_binning(self.x_full_res,
+                                                                                               self.full_res_offsetMask,
+                                                                                               nBin=self.timeBin)
+                        offsetMask_binned = np.array(offsetMask_y,dtype=int)
+                        self.offsetMask = offsetMask_binned
+                        ## mask out points with a mixture between the two steps
+                        unMixedPoints = np.mod(offsetMask_y,1.0) == 0
+                        mask = mask & unMixedPoints
                 
             # if self.useOOTforError == True:
 #                 yerr = np.std(y[self.oot_start:self.oot_end]) * np.ones_like(yerr)
@@ -547,6 +564,26 @@ class exo_model(object):
             else:
                 raise NotImplementedError("Only does polynomial for now")
             
+            if self.offsetMask is None:
+                pass
+            else:
+                
+                steps = np.unique(self.offsetMask)
+                nSteps = len(steps)
+                if nSteps == 1:
+                    pass
+                else:
+                    offsetArr = pm.Normal('stepOffsets',mu=0.0,testval=0.0,sigma=1,
+                                        shape=(nSteps-1))
+                    for oneStep in steps:
+                        if oneStep == 0:
+                            pass
+                        else:
+                            pts = self.offsetMask == oneStep
+                            light_curves_trended = light_curves_trended + tt.switch(pts,offsetArr[oneStep-1],0.0)
+                            #light_curves_trended[pts] = light_curves_trended[pts] + offsetArr[oneStep-1]
+            
+
             if self.expStart == True:
                 expTau = pm.Lognormal("exp_tau",mu=np.log(1e-3),sd=2)
                 expAmp = pm.Normal("exp_amp",mu=1e-3,sd=1e-2)

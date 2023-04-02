@@ -137,6 +137,10 @@ mask
 ~~~~
 A mask of points to include in the fitting. Useful if skipping some obviously bad points. If set to :code:`None`, no points are rejected initially, but may be rejected later depending on the :code:`sigReject` parameter.
 
+offsetMask
+~~~~~~~~~~
+A numpy array of integrs to allow for offsets at specific integrations (such as between exposures or before/after a tilt)
+
 timeBin
 ~~~~~~~
 An integer that says how many bins should be linearly spaced in time. This is just to speed up model evaluation time.
