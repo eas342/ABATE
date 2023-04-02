@@ -70,7 +70,8 @@ class exo_model(object):
                  ror_prior=None,
                  equalize_bin_err=False,
                  fixLDu1=False,
-                 fit_t0_spec=False):
+                 fit_t0_spec=False,
+                 fitSinusoid=False):
         #paramPath = 'parameters/spec_params/jwst/sim_mirage_007_grismc/spec_mirage_007_p015_full_emp_cov_weights_nchdas_mmm.yaml'
         #paramPath = 'parameters/spec_params/jwst/sim_mirage_007_grismc/spec_mirage_007_p016_full_emp_cov_weights_ncdhas_ppm.yaml'
         # paramPath = 'parameters/spec_params/jwst/sim_mirage_009_grismr_8grp/spec_mirage_009_p012_full_cov_highRN_nchdas_ppm_refpix.yaml'
@@ -178,7 +179,8 @@ class exo_model(object):
             self.specFileName = None
         else:
             self.specFileName = os.path.join('fit_results',self.descrip,'spectrum_{}.csv'.format(self.descrip))
-
+        
+        self.fitSinusoid = fitSinusoid
     
     def check_phase(self):
         phase = (self.x - self.t0_lit[0]) / self.period_lit[0]
@@ -583,6 +585,13 @@ class exo_model(object):
                             light_curves_trended = light_curves_trended + tt.switch(pts,offsetArr[oneStep-1],0.0)
                             #light_curves_trended[pts] = light_curves_trended[pts] + offsetArr[oneStep-1]
             
+            if self.fitSinusoid == True:
+                phaseAmp = pm.TruncatedNormal('phase_amp',mu=1e-5,sigma=1.0,
+                                              lower=0.0,testval=1e-5)
+                phaseOffset = pm.Normal('phaseOffset',mu=0,sigma=50,testval=0.0)
+                arg = (x - t0) * np.pi * 2. / period + np.pi * phaseOffset/180.
+                phaseModel = 1.0 - phaseAmp * tt.cos(arg)
+                light_curves_trended = light_curves_trended * phaseModel
 
             if self.expStart == True:
                 expTau = pm.Lognormal("exp_tau",mu=np.log(1e-3),sd=2)

@@ -129,6 +129,10 @@ eclipseGeometry
 ~~~~~~~~~~~~~~~
 What is the geometry of the eclipse. Possibilities include "Transit", "Eclipse" or "PhaseCurve". If it's set as "Eclipse", the eclipse amplitude will be fit assuming no limb darkening. If it's "Transit", the limb darkening will either be fit or fixed depending on :code:`u_lit` and the transit radius will be fit.
 
+fitSinusoid
+~~~~~~~~~~~
+Fit a sinusoid to the phase curve variations?
+
 expStart
 ~~~~~~~~
 Should the beginning be fit with an exponential?
