@@ -139,6 +139,11 @@ class exo_model(object):
             self.mask = mask
         self.startMask = deepcopy(self.mask)
         self.offsetMask = offsetMask
+        if self.offsetMask is None:
+            pass
+        else:
+            self.steps = np.unique(self.offsetMask)
+            self.nSteps = len(self.steps)
         
         self.sigReject = sigReject
         
@@ -324,7 +329,7 @@ class exo_model(object):
                 #                  sigma=get_from_t(broadband,'t0','std'))
                 #t0 = t0_lit[0]
                 
-                if self.eclipseGeometry == 'Eclipse':
+                if (self.eclipseGeometry == 'Eclipse') | (self.eclipseGeometry == 'PhaseCurve'):
                     e_depth = pm.Normal("e_depth",mu=1e-3,sigma=2e-3)
                     if self.ror_prior is None:
                         raise Exception("Must have an ror prior for eclipse")
@@ -570,8 +575,8 @@ class exo_model(object):
                 pass
             else:
                 
-                steps = np.unique(self.offsetMask)
-                nSteps = len(steps)
+                steps = self.steps
+                nSteps = self.nSteps
                 if nSteps == 1:
                     pass
                 else:
@@ -1308,6 +1313,15 @@ class exo_model(object):
             varnames = ['mean','a','incl','t0','ror','depth']
             varList = deepcopy(varnames)
         
+        if self.eclipseGeometry == 'PhaseCurve':
+            additional_varNames = ['phaseOffset','phase_amp',
+                                   'e_depth']
+            additional_varList = ['phaseOffset','phase_amp',
+                                  'e_depth']
+            for ind,oneVar in enumerate(additional_varNames):
+                varnames.append(oneVar)
+                varList.append(additional_varList[ind])
+
         if self.u_lit == None:
             varnames.append('u_star')
             varList.append('u_star__0')
@@ -1335,6 +1349,13 @@ class exo_model(object):
                 varnames.append('poly_coeff')
                 varList.append('poly_coeff__{}'.format(oneCoeff))
         
+        if self.offsetMask is None:
+            pass
+        else:
+            for oneStep in np.arange(self.nSteps - 1):
+                varnames.append('stepOffsets')
+                varList.append('stepOffsets__{}'.format(oneStep))
+
         if (self.expStart == True):
             varnames.append('exp_tau')
             varnames.append('exp_amp')
