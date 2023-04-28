@@ -1278,7 +1278,7 @@ class exo_model(object):
                 os.makedirs(outDir)
             
             with model0: 
-                trace = pm.sample( 
+                trace = pmx.sample( 
                     tune=3000, 
                     draws=3000, 
                     start=resultDict['map_soln'], 
