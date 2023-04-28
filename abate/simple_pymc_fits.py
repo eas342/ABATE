@@ -1548,7 +1548,11 @@ class exo_model(object):
             xdataset = arviz.convert_to_dataset(resultDict['trace'])
         
         if lc_var_name == 'light_curves':
-            lcCube = xdataset[lc_var_name][:,:,:,0]
+            lcDataset = xdataset[lc_var_name]
+            if len(lcDataset.shape) == 4:
+                lcCube = lcDataset[:,:,:,0]
+            else:
+                lcCube = lcDataset
         else:
             lcCube = xdataset[lc_var_name]
         final_lc2D = flatten_chains(lcCube)
