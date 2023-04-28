@@ -1736,6 +1736,78 @@ def flatten_chains(trace3D):
     
     trace2D = np.reshape(np.array(trace3D),[nchains * npoints,nvariables])
     return trace2D
+
+def do_wavebins(flux2D,err2D,binSize):
+    """ Calculate the theoretical an measured noise in lightcurves """
+
+    shape2D = flux2D.shape
+    nints, nwav = shape2D[0], shape2D[1]
     
+    nbins = int(np.floor(nwav / binSize ))
+
+    flux_binned2D = np.zeros([nints,nbins])
+    err_binned2D = np.zeros_like(flux_binned2D)
+    for one_bin in np.arange(nbins):
+        ind_st = one_bin * binSize
+        ind_end = ind_st + binSize
+        flux_binned2D[:,one_bin] = np.nansum(flux2D[:,ind_st:ind_end],axis=1) / binSize
+        err_binned2D[:,one_bin] = np.sqrt(np.nansum(err2D[:,ind_st:ind_end]**2,axis=1)) / binSize
+    
+    resultDict = {}
+    resultDict['nbins'] = nbins
+    resultDict['flux_binned2D'] = flux_binned2D
+    resultDict['std_binned'] = np.nanstd(flux_binned2D,axis=0)
+    resultDict['theo_median'] = np.nanmedian(err_binned2D)#,axis=0)
+    return resultDict
+
+def allanvar_wave(flux2D,err2D,showFloor=None,
+                  binMax=2**12):
+    """
+    Calculate the allan variance as a function of wavelength bin
+    """
+    nwav = flux2D.shape[1]
+    binpts_arr = 2**np.arange(int(np.log2(binMax)))
+    
+    measured_list = []
+    theoretical_list = []
+    nbins_list = []
+
+    for one_binSize in binpts_arr:
+        resultDict = do_wavebins(flux2D,err2D,one_binSize)
+        nbins_list.append(resultDict['nbins'])
+        measured_list.append(resultDict['std_binned'])
+        theoretical_list.append(resultDict['theo_median'])
+
+    fig, ax = plt.subplots()
+    theo_arr = np.array(theoretical_list) * 1e6
+    theo_eval = theo_arr[0] / np.sqrt(binpts_arr/binpts_arr[0])
+    #ax.loglog(binpts_arr,theo_arr,label="Ideal 1/$\sqrt{N}$")
+    ax.loglog(binpts_arr,theo_eval,label="Ideal 1/$\sqrt{N}$")
+    if showFloor is None:
+        pass
+    else:
+        theo_with_floor = np.sqrt(theo_arr**2 + (showFloor)**2)
+        floorLabel = "With {} ppm extra noise".format(showFloor)
+    #ax.loglog(binpts_arr,theo_with_floor,label=floorLabel)
+    
+    for ind,one_binSize in enumerate(binpts_arr):
+        ax.plot(np.ones(nbins_list[ind]) * one_binSize,
+                measured_list[ind] * 1e6,'o')
+    ax.legend()
+    ax.set_xlabel("N Wavebins (px)")
+    ax.set_ylabel("Error (ppm)")
+    
+    #ax.axhline(0.20)
+    
+    outDir = 'plots/allan_variance_wavebin'
+    if os.path.exists(outDir) == False:
+        os.makedirs(outDir)
+    outPath = os.path.join(outDir,'all_var_wavebin.png')
+    print("Writing plot to {}".format(outPath))
+    fig.savefig(outPath,
+                dpi=150,bbox_inches='tight')
+    #print(binpts_arr)
+
 if __name__ == "__main__":
     freeze_support()
+
