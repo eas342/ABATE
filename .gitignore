@@ -7,3 +7,4 @@ fit_traces/
 plots/
 docs/_build/
 *.ipynb_checkpoints/
+build/*
