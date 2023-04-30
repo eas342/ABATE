@@ -279,7 +279,9 @@ class exo_model(object):
                     e_depth = pm.Normal("e_depth",mu=1e-3,sigma=2e-3)
                     if self.ror_prior is None:
                         raise Exception("Must have an ror prior for eclipse")
-                    ror = pm.Normal("ror",mu=self.ror_prior[0],sigma=self.ror_prior[1])
+                    ror = pm.TruncatedNormal("ror",mu=self.ror_prior[0],
+                            sigma=self.ror_prior[1],
+                            lower=0.0)
                 else:
                     ror = pm.Lognormal("ror", mu=np.log(0.0822), sigma=0.5)
                 
@@ -333,7 +335,9 @@ class exo_model(object):
                     e_depth = pm.Normal("e_depth",mu=1e-3,sigma=2e-3)
                     if self.ror_prior is None:
                         raise Exception("Must have an ror prior for eclipse")
-                    ror = pm.Normal("ror",mu=self.ror_prior[0],sigma=self.ror_prior[1])
+                    ror = pm.TruncatedNormal("ror",mu=self.ror_prior[0],
+                                             sigma=self.ror_prior[1],
+                                             lower=0.0)
                 else:
                      mean_r = get_from_t(broadband,'ror','mean')
                      ror = pm.Lognormal("ror", mu=np.log(mean_r), sigma=0.3)
