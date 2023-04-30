@@ -280,6 +280,7 @@ class exo_model(object):
                     if self.ror_prior is None:
                         raise Exception("Must have an ror prior for eclipse")
                     ror = pm.TruncatedNormal("ror",mu=self.ror_prior[0],
+                            testval=self.ror_prior[0],
                             sigma=self.ror_prior[1],
                             lower=0.0)
                 else:
@@ -337,6 +338,7 @@ class exo_model(object):
                         raise Exception("Must have an ror prior for eclipse")
                     ror = pm.TruncatedNormal("ror",mu=self.ror_prior[0],
                                              sigma=self.ror_prior[1],
+                                             testval=self.ror_prior[0],
                                              lower=0.0)
                 else:
                      mean_r = get_from_t(broadband,'ror','mean')
