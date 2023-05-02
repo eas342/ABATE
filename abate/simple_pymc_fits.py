@@ -28,6 +28,11 @@ from copy import deepcopy
 #from celerite2 import terms, GaussianProcess
 import tqdm
 
+## reduce some of the extraneous theano warnings that show up every time
+import logging
+logging.getLogger('theano').setLevel(logging.ERROR)
+
+
 tshirtDir = spec_pipeline.baseDir
 
 default_paramPath='parameters/spec_params/jwst/sim_mirage_009_grismr_8grp/spec_mirage_009_p013_full_cov_highRN_ncdhasfixed_mpm_refpix.yaml'
@@ -1817,6 +1822,8 @@ def allanvar_wave(flux2D,err2D,showFloor=None,
     fig.savefig(outPath,
                 dpi=150,bbox_inches='tight')
     #print(binpts_arr)
+
+
 
 if __name__ == "__main__":
     freeze_support()
