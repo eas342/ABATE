@@ -1823,6 +1823,20 @@ def allanvar_wave(flux2D,err2D,showFloor=None,
                 dpi=150,bbox_inches='tight')
     #print(binpts_arr)
 
+overlapWaveRangeToCheck = [3.88,4.02]
+def calc_mean_in_overlap(sp,waveRange=overlapWaveRangeToCheck):
+    pts_overlap = ((sp['wave mid'] > overlapWaveRangeToCheck[0] ) & 
+               (sp['wave mid'] < overlapWaveRangeToCheck[1]))
+    meanInOverlap = np.mean(sp['depth'][pts_overlap] * 1e6)
+    errInOverlap = np.median(sp['depth err'][pts_overlap] * 1e6) / np.sqrt(np.sum(pts_overlap))
+    return meanInOverlap, errInOverlap
+
+def compare_overlap(sp1,sp2,waveRange=overlapWaveRangeToCheck):
+    mean1, err1 = calc_mean_in_overlap(sp1)
+    mean2, err2 = calc_mean_in_overlap(sp2)
+    diff = mean1 - mean2
+    diff_err = np.sqrt(err1**2 + err2**2)
+    return diff, diff_err
 
 
 if __name__ == "__main__":
