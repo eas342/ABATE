@@ -47,6 +47,13 @@ default_ld = 'quadratic'
 
 default_starry_ld_deg = 6
 
+
+## Astropy units don't see to carry through, so ...
+## Calculate Kepler's 3rd law with a prefactor
+prefac = (2. * np.pi / (1.0 * u.day))**2 * (1.0 * u.Rsun)**3 / const.G
+unitless_prefac = prefac.to(u.Msun).value
+
+
 class exo_model(object):
     
     def __init__(self,paramPath=default_paramPath,descrip=default_descrip,t0_lit=defaultT0,
@@ -509,10 +516,6 @@ class exo_model(object):
                 
             else:
                 
-                ## Astropy units don't see to carry through, so ...
-                ## Calculate Kepler's 3rd law with a prefactor
-                prefac = (2. * np.pi / (1.0 * u.day))**2 * (1.0 * u.Rsun)**3 / const.G
-                unitless_prefac = prefac.to(u.Msun).value
                 
                 Msys = unitless_prefac * a**3 / period**2
                 m_star = Msys ## assume it's all star for now
@@ -1732,6 +1735,63 @@ def compare_spectra(specList=[spec_to_comp1,spec_to_comp2],
         fig.show()
     else:
         fig.savefig('plots/comparison_spectra/comparison_spectra.pdf')
+
+def calc_starry_model(time,a=8.0,period=3.0,
+                      u_star=[0.1,0.1],
+                      ror=0.1,
+                      amp=0.0,t0=2459870.0,
+                      ecc=0.0,omega=90.0,
+                      incl=90.0,texp=5.0):
+    """ 
+    Calculate a starry lightcurve model with a simple set of parameters
+    Note that it is very slow to calculate the first time
+
+    Parameters
+    ----------
+    time: numpy array
+        Time, in days
+    a: float
+        Semi-major axis in stellar radius units, (e.g. 8.0)
+    period: float
+        Orbital period, days (e.g. 3.0)
+    u_star: list of floats
+        Limb darkening polynomial law (eg. [0.1, 0.1])
+    ror: float
+        planet radius to star radius ratio
+    amp: float
+        planet eclipse depth (or amplitude of map)
+        only will affect eclipse depth, but will re-normalize
+        if applied to transit (e.g. 1e-3)
+    t0: float
+        epoch of transit center (e.g. 2459870.0)
+    ecc: float
+        orbital eccentricity (e.g. 0.0)
+    omega: float
+        argument of pericenter (degrees) (e.g. 90.0)
+    inc: float
+        inclination (degrees) (e.g. 90.0)
+    texp: float
+        exposure time (seconds) (e.g. 5.0)
+    """
+    Msys = unitless_prefac * a**3 / period**2
+    m_star = Msys ## assume it's all star for now
+    
+    star_map = starry.Map(udeg=len(u_star))
+    star_map[1:] = u_star
+    star = starry.Primary(star_map,m=m_star,r=1.0)
+    
+    planet = starry.kepler.Secondary(starry.Map(amp=amp),
+                                        m=0.0,
+                                        r=ror,
+                                        porb=period,
+                                        prot=period,
+                                        t0=t0,
+                                        ecc=ecc,
+                                        omega=omega,
+                                        inc=incl)
+    sys = starry.System(star,planet,texp=texp/(24. * 3600.))
+    light_curve = sys.flux(t=time)
+    return light_curve.eval()
 
 def flatten_chains(trace3D):
     """
