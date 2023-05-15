@@ -32,6 +32,8 @@ import tqdm
 import logging
 logging.getLogger('theano').setLevel(logging.ERROR)
 
+from . import gather_telemetry
+
 
 tshirtDir = spec_pipeline.baseDir
 
@@ -123,6 +125,7 @@ class exo_model(object):
         self.nbins = nbins ## wavelength bins for spectroscopy
         self.paramFile = os.path.join(tshirtDir,paramPath)
         
+        self.pipeType = pipeType
         if pipeType == 'phot':
             self.phot = phot_pipeline.phot(self.paramFile)
             t1, t2 = self.phot.get_tSeries()
@@ -198,7 +201,27 @@ class exo_model(object):
             self.specFileName = os.path.join('fit_results',self.descrip,'spectrum_{}.csv'.format(self.descrip))
         
         self.fitSinusoid = fitSinusoid
+
+        if 'fpah' in self.trendType:
+            self.get_telem_vec()
     
+    def get_telem_vec(self):
+        """
+        Get a vector from spacecraft telemetry
+        'e.g.' Focal plane housing array temperature
+        """
+        if self.pipeType == 'spec':
+            fileDescrip = self.spec.dataFileDescrip
+        else:
+            fileDescrip = self.phot.dataFileDescrip
+        
+        pathName = gather_telemetry.telemfile_path(fileDescrip)
+        if os.path.exists(pathName) == False:
+            gather_telemetry.get_telem(self.paramPath,tserType=self.pipeType)
+        dat = ascii.read(pathName)
+        
+        self.fpah = np.array(dat['IGDP_NRC_A_T_LWFPAH1 diff'])
+
     def check_phase(self):
         phase = (self.x - self.t0_lit[0]) / self.period_lit[0]
         return phase
@@ -389,6 +412,11 @@ class exo_model(object):
             
             if self.timeBin is None:
                 x, y, yerr = x_in, y_in, yerr_in
+                if 'fpah' in self.trendType:
+                    if hasattr(self,'fpah_full_res'):
+                        fpah = self.fpah_full_res
+                    else:
+                        fpah = self.fpah
             else:
                 if (self.timeBin < len(mask)) | hasattr(self,'full_res_mask'):
                     if hasattr(self,'full_res_mask'):
@@ -399,6 +427,10 @@ class exo_model(object):
 
                     x_to_bin = x_in[self.full_res_mask]
                     y_to_bin = y_in[self.full_res_mask]
+
+                    if 'fpah' in self.trendType:
+                        fpah_to_bin = fpah[self.full_res_mask]
+
                     ## do nothing if the mask is meant for binned data
                     if (self.timeBin == len(mask)):
                         pass
@@ -413,6 +445,8 @@ class exo_model(object):
                 else:
                     x_to_bin = x_in
                     y_to_bin = y_in
+                    if 'fpah' in self.trendType:
+                        fpah_to_bin = fpah
                 
                 x, y, yerr = phot_pipeline.do_binning(x_to_bin, y_to_bin,nBin=self.timeBin)
                 if self.equalize_bin_err == True:
@@ -431,9 +465,14 @@ class exo_model(object):
                         self.x_full_res = deepcopy(self.x)
                         self.y_full_res = deepcopy(self.y)
                         self.yerr_full_res = deepcopy(self.yerr)
+                        if 'fpah' in self.trendType:
+                            self.fpah_full_res = deepcopy(self.fpah)
+
                     self.x = x
                     self.y = y
                     self.yerr = yerr
+                    if 'fpah' in self.trendType:
+                        self.fpah = fpah
 
                 if self.offsetMask is not None:
                     if hasattr(self,'full_res_offsetMask') == True:
@@ -561,9 +600,8 @@ class exo_model(object):
                 # ## Assign a potential to avoid these maps
                 # nonneg_map = pm.Potential('nonneg_map', switch)
             
-            if self.trendType is None:
-                light_curves_trended = pm.Deterministic("lc_trended",light_curve)
-            elif self.trendType == 'poly':
+            lc_trend_vector = 0.0
+            if 'poly' in self.trendType:
                 xNorm = (x - np.median(x))/(np.max(x) - np.min(x))
                 #xNorm_var = pm.Deterministic("xNorm",xNorm)
                 poly_coeff = pm.Normal("poly_coeff",mu=0.0,testval=0.0,
@@ -577,14 +615,16 @@ class exo_model(object):
                     else:
                         poly_eval = (poly_eval + poly_coeff[self.poly_ord - poly_ind - 1]) * xNorm
                 full_coeff = poly_coeff# np.append(poly_coeff,0)
-                
+
                 if self.legacy_polynomial == True:
-                    light_curves_trended = pm.Deterministic("lc_trended",light_curve + poly_eval)
+                    lc_trend_vector = lc_trend_vector + light_curve + poly_eval
                 else:
-                    light_curves_trended = pm.Deterministic("lc_trended",light_curve * (1.0 + poly_eval))
-            else:
-                raise NotImplementedError("Only does polynomial for now")
+                    lc_trend_vector = lc_trend_vector + light_curve * (1.0 + poly_eval)
             
+            if 'fpah' in self.trendType:
+                telemCoeff = pm.Normal('fpahCoeff',mu=0,sigma=5.)
+                lc_trend_vector = lc_trend_vector + light_curve * (1.0 + telemFPAHrel * telemCoeff)
+
             if self.offsetMask is None:
                 pass
             else:
@@ -601,9 +641,11 @@ class exo_model(object):
                             pass
                         else:
                             pts = self.offsetMask == oneStep
-                            light_curves_trended = light_curves_trended + tt.switch(pts,offsetArr[oneStep-1],0.0)
+                            lc_trend_vector = lc_trend_vector + tt.switch(pts,offsetArr[oneStep-1],0.0)
                             #light_curves_trended[pts] = light_curves_trended[pts] + offsetArr[oneStep-1]
             
+            light_curves_trended = pm.Deterministic("lc_trended",light_curve + lc_trend_vector)
+
             if self.fitSinusoid == True:
                 phaseAmp = pm.TruncatedNormal('phase_amp',mu=1e-5,sigma=1.0,
                                               lower=0.0,testval=1e-5)
