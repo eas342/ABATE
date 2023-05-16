@@ -64,6 +64,7 @@ class exo_model(object):
                  ecc=default_ecc,omega=default_omega,
                  ld_law=default_ld,sigReject=10,
                  starry_ld_degree=default_starry_ld_deg,
+                 u_lit_file=None,
                  cores=2,nchains=2,
                  pymc3_init="adapt_full",
                  fitSigma=None,
@@ -85,7 +86,8 @@ class exo_model(object):
                  equalize_bin_err=False,
                  fixLDu1=False,
                  fit_t0_spec=False,
-                 fitSinusoid=False):
+                 fitSinusoid=False,
+                 ):
         #paramPath = 'parameters/spec_params/jwst/sim_mirage_007_grismc/spec_mirage_007_p015_full_emp_cov_weights_nchdas_mmm.yaml'
         #paramPath = 'parameters/spec_params/jwst/sim_mirage_007_grismc/spec_mirage_007_p016_full_emp_cov_weights_ncdhas_ppm.yaml'
         # paramPath = 'parameters/spec_params/jwst/sim_mirage_009_grismr_8grp/spec_mirage_009_p012_full_cov_highRN_nchdas_ppm_refpix.yaml'
@@ -112,10 +114,16 @@ class exo_model(object):
         self.eclipseGeometry = eclipseGeometry
         self.ror_prior= ror_prior
         
-        if ld_law == 'quadratic':
+        if (ld_law == 'quadratic') & (self.eclipseGeometry == 'Transit'):
+            ## for quadratic limb darkening transits, 
+            ## don't use starry directly, just use exoplanets
             self.starry_ld_degree = None
         else:
             self.starry_ld_degree = starry_ld_degree
+        self.u_lit_file = u_lit_file
+        if self.u_lit == 'interpSpecOnly':
+            self.set_up_limbdarkening_interpolation()
+
         # paramPath = 'parameters/spec_params/jwst/sim_mirage_009_grismr_8grp/spec_mirage_009_p014_ncdhas_mpm_skip_xsub.yaml'
         # descrip = 'grismr_003_no_xsub'
 
@@ -247,6 +255,22 @@ class exo_model(object):
             paramLen = len(paramVal)
         return paramLen
 
+    def set_up_limbdarkening_interpolation(self):
+        """
+        Set up the interpolation functions from the 
+        saved file
+        """
+        dat = ascii.read(self.u_lit_file)
+        self.u_lit_degree = dat.meta['degree']
+        interpFuncs = []
+        for u_lit_ind in range(self.u_lit_degree):
+            thisInterp = interp1d(dat['wave'],
+                                  dat['u{}'.format(u_lit_ind+1)])
+            interpFuncs.append(thisInterp)
+        self.interpFuncs = interpFuncs
+        assert self.ld_law == dat.meta['law'],'u_lit and used ld law are different'
+
+
     def build_model(self, specInfo=None):
         """
         Build a pymc3 model
@@ -261,9 +285,19 @@ class exo_model(object):
             # Parameters for the stellar properties
             mean = pm.Normal("mean", mu=1000., sd=10,testval=1000.)
 
+
+            if (self.u_lit == 'interpSpecOnly'):
+                if specInfo == None:
+                    ## Broadband fit the limb dark parameters
+                    fitLimbDarkParamsOverride = True
+                else:
+                    fitLimbDarkParamsOverride = False
+            else:
+                fitLimbDarkParamsOverride = False
+
             if (self.fixLDu1 == True) & (specInfo is not None):
                 u_star = 'special'
-            elif self.u_lit == None:
+            elif (self.u_lit == None) | (fitLimbDarkParamsOverride == True):
                 if (self.eclipseGeometry == 'Transit') | (self.eclipseGeometry == 'PhaseCurve'):
                     if self.ld_law == 'quadratic':
                         u_star = xo.QuadLimbDark("u_star",testval=[0.71,0.1])
@@ -278,10 +312,17 @@ class exo_model(object):
                                            shape=(self.starry_ld_degree,))
                 else:
                     u_star = 0.0
+            elif (self.u_lit == 'interpSpecOnly'):
+                u_star = []
+                for u_lit_ind in range(self.u_lit_degree):
+                    thisWave = specInfo['waveMid']
+                    u_star.append(self.interpFuncs[u_lit_ind](thisWave))
             else:
                 u_star = self.u_lit
         
             if specInfo == None:
+                ## ie broadband lightcurve
+
                 if self.inspect_physOrb_params(self.a_lit) == 1:
                     a = self.a_lit
                 else:
@@ -390,7 +431,7 @@ class exo_model(object):
                     ecc_from_broadband_val = (np.nan,np.nan)
                 
                 if self.fixLDu1 == True:
-                    assert(self.ld_law=='quadratic')
+                    assert self.ld_law=='quadratic'
                     ## Make sure u1 is fixed
                     u1_use = get_from_t(broadband,'u_star__0','mean')
                     ## Kipping et al. 2013 equation 8
@@ -753,7 +794,9 @@ class exo_model(object):
         waveName = t1.colnames[1+waveBinNum]
         y1 = np.ascontiguousarray(t1[waveName] * 1000.) ## convert to ppt
         yerr1 = np.ascontiguousarray(t2[t2.colnames[1+waveBinNum]] * 1000.) ## convert to ppt
-    
+
+
+
         return x1,y1,yerr1,waveName
 
     def build_model_spec(self, mask=None,start=None,waveBinNum=0,nbins=None,
@@ -776,7 +819,9 @@ class exo_model(object):
         specInfo['y'] = y1
         specInfo['yerr'] = yerr1
         specInfo['waveName'] = waveName1
-        
+        waveStart, waveEnd, waveMid, dispIndicesTable = self.lookup_waveBins(nbins=nbins)
+        specInfo['waveMid'] = waveMid[waveBinNum]
+
         resultDict = self.build_model(specInfo=specInfo)
         
         
@@ -1059,6 +1104,20 @@ class exo_model(object):
         print("Saving file to {}".format(outPath))
         outHDU.writeto(outPath,overwrite=True)
     
+    def lookup_waveBins(self,nbins):
+        """
+        Look up the wavelength bin starts, middles and ends
+        
+        """
+                ## Use the edges of the pixels for the bin starts/ends
+        HDUList = fits.open(self.spec.wavebin_specFile(nbins=nbins))
+        dispIndicesTable = Table(HDUList['DISP INDICES'].data)
+        waveStart=np.round(self.spec.wavecal(dispIndicesTable['Bin Start']-0.5),5)
+        waveEnd=np.round(self.spec.wavecal(dispIndicesTable['Bin End']-0.5),5)
+        waveMid = np.round(self.spec.wavecal(dispIndicesTable['Bin Middle']-0.5),5)
+
+        return waveStart, waveEnd, waveMid, dispIndicesTable
+
     def collect_spectrum(self,nbins=None,doInference=False,
                          redoWaveBinCheck=True,
                          gatherAll=False):
@@ -1105,12 +1164,8 @@ class exo_model(object):
                                               binEnds=self.wbin_ends,
                                               recalculate=redoWaveBinCheck)
         print("Making sure wavelength bins are established from bin parameters")
-        ## Use the edges of the pixels for the bin starts/ends
-        HDUList = fits.open(self.spec.wavebin_specFile(nbins=nbins))
-        dispIndicesTable = Table(HDUList['DISP INDICES'].data)
-        waveStart=np.round(self.spec.wavecal(dispIndicesTable['Bin Start']-0.5),5)
-        waveEnd=np.round(self.spec.wavecal(dispIndicesTable['Bin End']-0.5),5)
-        waveMid = np.round(self.spec.wavecal(dispIndicesTable['Bin Middle']-0.5),5)
+
+        waveStart, waveEnd, waveMid, dispIndicesTable = self.lookup_waveBins(nbins=nbins)
 
         t = Table()
         t['wave start'] = waveStart

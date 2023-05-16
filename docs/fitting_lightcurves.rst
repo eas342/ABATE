@@ -62,14 +62,27 @@ This variable is a tuple, where the first value is the semimajor axis divided by
 
 u_lit
 ~~~~~~~
+If u_lit is a list:
+   If this variable is a list, and is the limb darkening parameter. It has two main modes:
 
-This variable is a list, and is the limb darkening parameter. It has two main modes:
-1. quadratic, where the list is two values long
-2. multiterm, where the list has the same number of values as the value of the variable starry_ld_degree
+   1. quadratic, where the list is two values long
+   2. multiterm, where the list has the same number of values as the value of the variable starry_ld_degree
 
-When either of these modes are used, limb darkening becomes a fixed parameter, and is not sampled by PyMC3. However, if *u_lit* is set to *None*, then it becomes a free parameter that is sampled by PyMC3, though it will take longer to run.
+   When either of these modes are used, limb darkening becomes a fixed parameter, and is not sampled by PyMC3. However, if *u_lit* is set to *None*, then it becomes a free parameter that is sampled by PyMC3, though it will take longer to run.
+
 
 To calculate the values needed for the two main modes, you can visit https://exoctk.stsci.edu/limb_darkening, which allows you to select your target and the filter used to collect the data, choose your type(s) of limb darkening law, and calculate the coefficients needed. For quadratic, you will use the values under *c1* and *c2* in the table, and for multiterm, you will should follow the instructions in the notebook tutorial.
+
+If u_lit is None: it is fit with priors
+If u_lit is `interpSpecOnly`, the broadband limb darkenign parameters are fit, but the spectroscopic ones are fixed to a model (interpolated to the relevant wavelength)
+
+
+u_lit_file
+~~~~~~~~~~
+Either a string with the path name or None.
+This is only used if `u_lit` is `interpSpecOnly` to set up interpolation functions. Look up the `.ecsv` file for limb darkening interpolation.
+The `.ecsv` file should have metadata with the "law" (e.g. 'quadratic') and the "degree" (e.g. 2 for quadratic)
+The file should have 1 column called "wave" and one for each limb darkening parameter e.e.g "u1" and "u2".
 
 starry_ld_degree
 ~~~~~~~~~~~~~~~~~
