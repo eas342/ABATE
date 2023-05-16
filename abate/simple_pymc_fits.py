@@ -451,15 +451,22 @@ class exo_model(object):
             else:
                 x_in = self.override_times
             
+            if 'fpah' in self.trendType:
+                if hasattr(self,'fpah_full_res'):
+                    fpah_in = self.fpah_full_res
+                else:
+                    fpah_in = self.fpah
+
             if self.timeBin is None:
+                ## no binning of lightcurves
                 x, y, yerr = x_in, y_in, yerr_in
                 if 'fpah' in self.trendType:
-                    if hasattr(self,'fpah_full_res'):
-                        fpah = self.fpah_full_res
-                    else:
-                        fpah = self.fpah
+                    fpah = fpah_in
             else:
                 if (self.timeBin < len(mask)) | hasattr(self,'full_res_mask'):
+                    ### Handles two cases
+                    ## 1) the mask is for full time resolution
+                    ## 2) there is a saved separate mask for full time resolution
                     if hasattr(self,'full_res_mask'):
                         pass
                     else:
@@ -470,7 +477,7 @@ class exo_model(object):
                     y_to_bin = y_in[self.full_res_mask]
 
                     if 'fpah' in self.trendType:
-                        fpah_to_bin = fpah[self.full_res_mask]
+                        fpah_to_bin = fpah_in[self.full_res_mask]
 
                     ## do nothing if the mask is meant for binned data
                     if (self.timeBin == len(mask)):
@@ -487,12 +494,20 @@ class exo_model(object):
                     x_to_bin = x_in
                     y_to_bin = y_in
                     if 'fpah' in self.trendType:
-                        fpah_to_bin = fpah
+                        fpah_to_bin = fpah_in
                 
                 x, y, yerr = phot_pipeline.do_binning(x_to_bin, y_to_bin,nBin=self.timeBin)
+                y = np.ascontiguousarray(y)
+                yerr = np.ascontiguousarray(yerr)
                 if self.equalize_bin_err == True:
                     yerr = np.ones_like(yerr) * np.median(yerr)
                 
+                if 'fpah' in self.trendType:
+                    xfpah,fpah,fpah_err = phot_pipeline.do_binning(x_to_bin,
+                                                                fpah_to_bin,
+                                                                nBin=self.timeBin)
+                    fpah = np.ascontiguousarray(fpah)
+
                 finite_y = np.isfinite(y)
                 
                 mask = mask & finite_y ## make sure to only include finite points
@@ -500,6 +515,7 @@ class exo_model(object):
                 ## unless they are masked out
                 
                 if specInfo == None:
+                    ## for brandband lightcurves
                     if hasattr(self,'x_full_res'):
                         pass ## full resolution is already saved
                     else:
@@ -641,7 +657,8 @@ class exo_model(object):
                 # ## Assign a potential to avoid these maps
                 # nonneg_map = pm.Potential('nonneg_map', switch)
             
-            lc_trend_vector = 0.0
+            lc_trend_vector_adder = 0.0
+            lc_trend_vector_multiplier = 1.0
             if 'poly' in self.trendType:
                 xNorm = (x - np.median(x))/(np.max(x) - np.min(x))
                 #xNorm_var = pm.Deterministic("xNorm",xNorm)
@@ -658,13 +675,13 @@ class exo_model(object):
                 full_coeff = poly_coeff# np.append(poly_coeff,0)
 
                 if self.legacy_polynomial == True:
-                    lc_trend_vector = lc_trend_vector + light_curve + poly_eval
+                    lc_trend_vector_adder = lc_trend_vector_adder + poly_eval
                 else:
-                    lc_trend_vector = lc_trend_vector + light_curve * (1.0 + poly_eval)
+                    lc_trend_vector_multiplier = lc_trend_vector_multiplier * (1.0 + poly_eval)
             
             if 'fpah' in self.trendType:
-                telemCoeff = pm.Normal('fpahCoeff',mu=0,sigma=5.)
-                lc_trend_vector = lc_trend_vector + light_curve * (1.0 + telemFPAHrel * telemCoeff)
+                telemCoeff = pm.Normal('fpahCoeff',mu=0,sigma=5e-3)
+                lc_trend_vector_multiplier = lc_trend_vector_multiplier * (1.0 + fpah * telemCoeff)
 
             if self.offsetMask is None:
                 pass
@@ -682,10 +699,11 @@ class exo_model(object):
                             pass
                         else:
                             pts = self.offsetMask == oneStep
-                            lc_trend_vector = lc_trend_vector + tt.switch(pts,offsetArr[oneStep-1],0.0)
+                            lc_trend_vector_adder = lc_trend_vector_adder + tt.switch(pts,offsetArr[oneStep-1],0.0)
                             #light_curves_trended[pts] = light_curves_trended[pts] + offsetArr[oneStep-1]
             
-            light_curves_trended = pm.Deterministic("lc_trended",light_curve + lc_trend_vector)
+            light_curves_trended = pm.Deterministic("lc_trended",(light_curve * lc_trend_vector_multiplier + 
+                                                                  lc_trend_vector_adder))
 
             if self.fitSinusoid == True:
                 phaseAmp = pm.TruncatedNormal('phase_amp',mu=1e-5,sigma=1.0,
