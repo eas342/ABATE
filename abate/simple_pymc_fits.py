@@ -682,6 +682,7 @@ class exo_model(object):
                     planet_emission = light_curve - light_curve_darkplanet
                     light_curve = light_curve_darkplanet + planet_emission * phaseModel
                     nightside_f = pm.Deterministic('nightsideDepth',e_depth * (1. - 2. * phaseAmp))
+                    #planet_amp = pm.Deterministic()
                 elif self.phaseCurveFormulation == 'approx':
                     light_curve = light_curve - amp + amp * phaseModel
                 else:
@@ -1995,7 +1996,7 @@ def calculate_nightside_spec(sp_all):
     fracDepthErr = sp_all['e_depth err'] / sp_all['e_depth']
     fracAmpErr = sp_all['phase_amp err'] / sp_all['phase_amp']
     product_err = sp_all['e_depth'] * sp_all['phase_amp'] * np.sqrt(fracDepthErr**2 + fracAmpErr**2)
-    nightsideF_var = sp_all['e_depth err']**2 + 2. * product_err**2
+    nightsideF_var = sp_all['e_depth err']**2 + (2. * product_err)**2
     nightsideF_err = np.sqrt(nightsideF_var)
     
     return nightsideF,nightsideF_err
