@@ -87,6 +87,7 @@ class exo_model(object):
                  fixLDu1=False,
                  fit_t0_spec=False,
                  fitSinusoid=False,
+                 phaseCurveFormulation='standard',
                  ):
         #paramPath = 'parameters/spec_params/jwst/sim_mirage_007_grismc/spec_mirage_007_p015_full_emp_cov_weights_nchdas_mmm.yaml'
         #paramPath = 'parameters/spec_params/jwst/sim_mirage_007_grismc/spec_mirage_007_p016_full_emp_cov_weights_ncdhas_ppm.yaml'
@@ -209,6 +210,7 @@ class exo_model(object):
             self.specFileName = os.path.join('fit_results',self.descrip,'spectrum_{}.csv'.format(self.descrip))
         
         self.fitSinusoid = fitSinusoid
+        self.phaseCurveFormulation = phaseCurveFormulation
 
         if 'fpah' in self.trendType:
             self.get_telem_vec()
@@ -604,10 +606,7 @@ class exo_model(object):
                 light_curves_var = light_curves_obj.get_light_curve(orbit=orbit, r=ror,
                                                                     t=x, texp=self.texp)
         
-                # Compute the model light curve
-                light_curves = pm.Deterministic("light_curves",light_curves_var)
-        
-                light_curve = (tt.sum(light_curves, axis=-1) + 1.) * mean
+                light_curve = (tt.sum(light_curves, axis=-1) + 1.)
             
                 
             else:
@@ -635,8 +634,7 @@ class exo_model(object):
                                                  omega=omega,
                                                  inc=incl)
                 sys = starry.System(star,planet,texp=self.texp)
-                light_curve = sys.flux(t=x) * mean
-                light_curves = pm.Deterministic("light_curves",light_curve) ## save astrophysical model
+                light_curve = sys.flux(t=x)
                 self.sys = sys
                 
                 # ## make sure that the limb darkening law is physical
@@ -657,8 +655,40 @@ class exo_model(object):
                 # ## Assign a potential to avoid these maps
                 # nonneg_map = pm.Potential('nonneg_map', switch)
             
-            lc_trend_vector_adder = 0.0
-            lc_trend_vector_multiplier = 1.0
+
+            if (self.fitSinusoid == True) & (self.phaseCurveFormulation != 'old-legacy'):
+                phaseAmp = pm.TruncatedNormal('phase_amp',mu=0.5,sigma=0.5,
+                                              lower=0.0,testval=1e-5)
+                phaseOffset = pm.Normal('phaseOffset',mu=0,sigma=50,testval=0.0)
+                arg = (x - t0) * np.pi * 2. / period + np.pi * phaseOffset/180.
+                phaseModel = 1.0 - phaseAmp - phaseAmp * tt.cos(arg)
+                ## save a variable for the phase variations to see them separately
+                phaseModelVar = pm.Deterministic('phaseModel',phaseModel)
+
+                if self.phaseCurveFormulation == 'standard':
+                    ## Find a dark planet model as a reference
+                    planet_dark = starry.kepler.Secondary(starry.Map(amp=0),
+                                        m=0.0,
+                                        r=ror,
+                                        porb=period,
+                                        prot=period,
+                                        t0=t0,
+                                        ecc=ecc,
+                                        omega=omega,
+                                        inc=incl)
+                    sys2 = starry.System(star,planet_dark,texp=self.texp)
+                    light_curve_darkplanet = sys2.flux(t=x)
+                    light_curve_darkplanet_var = pm.Deterministic('lc-darkplanet',light_curve_darkplanet)
+                    planet_emission = light_curve - light_curve_darkplanet
+                    light_curve = light_curve_darkplanet + planet_emission * phaseModel
+                elif self.phaseCurveFormulation == 'approx':
+                    light_curve = light_curve - amp + amp * phaseModel
+                else:
+                    raise Exception("{} not recognized".format(self.phaseCurveFormulation))
+            ## save a "light_curves" pymc3 varaible with the astrophysical lightcurve
+            light_curves = pm.Deterministic("light_curves",light_curve)
+
+            lc_trend_vector_multiplier = mean
             if 'poly' in self.trendType:
                 xNorm = (x - np.median(x))/(np.max(x) - np.min(x))
                 #xNorm_var = pm.Deterministic("xNorm",xNorm)
@@ -686,7 +716,7 @@ class exo_model(object):
             if self.offsetMask is None:
                 pass
             else:
-                
+                step_offsets = 0.0
                 steps = self.steps
                 nSteps = self.nSteps
                 if nSteps == 1:
@@ -699,18 +729,20 @@ class exo_model(object):
                             pass
                         else:
                             pts = self.offsetMask == oneStep
-                            lc_trend_vector_adder = lc_trend_vector_adder + tt.switch(pts,offsetArr[oneStep-1],0.0)
+                            step_offsets = step_offsets + tt.switch(pts,offsetArr[oneStep-1],0.0)
+                            lc_trend_vector_multiplier = lc_trend_vector_multiplier * (1.0 + step_offsets * 1e-3)
                             #light_curves_trended[pts] = light_curves_trended[pts] + offsetArr[oneStep-1]
             
-            light_curves_trended = pm.Deterministic("lc_trended",(light_curve * lc_trend_vector_multiplier + 
-                                                                  lc_trend_vector_adder))
+            light_curves_trended = pm.Deterministic("lc_trended",(light_curve * lc_trend_vector_multiplier))
 
-            if self.fitSinusoid == True:
+            if (self.fitSinusoid == True) & (self.phaseCurveFormulation == 'old-legacy'):
                 phaseAmp = pm.TruncatedNormal('phase_amp',mu=1e-5,sigma=1.0,
                                               lower=0.0,testval=1e-5)
                 phaseOffset = pm.Normal('phaseOffset',mu=0,sigma=50,testval=0.0)
                 arg = (x - t0) * np.pi * 2. / period + np.pi * phaseOffset/180.
                 phaseModel = 1.0 - phaseAmp * tt.cos(arg)
+                ## save a variable for the phase variations
+                phaseModelVar = pm.Deterministic('phaseModel',phaseModel)
                 light_curves_trended = light_curves_trended * phaseModel
 
             if self.expStart == True:
