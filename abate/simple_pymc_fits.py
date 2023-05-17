@@ -1034,7 +1034,8 @@ class exo_model(object):
         return t
     
     def collect_all_lc_and_fits(self,nbins=None,
-                                recalculate=False):
+                                recalculate=False,
+                                astrophParameterization='v02'):
         """
         Collect all spectroscopic lightcurves, errors and model fits
                                 
@@ -1092,7 +1093,10 @@ class exo_model(object):
             result['y'] = np.array(y_list)
             result['yerr'] = np.array(yerr_list)
             result['mask'] = np.array(mask_list)
-            result['model_astroph'] = (np.array(model_list_astroph) + 1.) * 1000.
+            if astrophParameterization == 'old-legacy':
+                result['model_astroph'] = (np.array(model_list_astroph) + 1.) * 1000.
+            else:
+                result['model_astroph'] = np.array(model_list_astroph)
             result['model_sys'] = np.array(model_list_sys)
             
             self.save_lc_fits2D(result,outPath)
