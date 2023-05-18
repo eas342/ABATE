@@ -70,7 +70,7 @@ class exo_model(object):
                  fitSigma=None,
                  nbins=20,
                  oot_start=0,oot_end=100,
-                 trendType=None,
+                 trendType='poly',
                  poly_ord=None,
                  legacy_polynomial=False,
                  expStart=None,
