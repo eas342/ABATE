@@ -682,7 +682,7 @@ class exo_model(object):
                     planet_emission = light_curve - light_curve_darkplanet
                     light_curve = light_curve_darkplanet + planet_emission * phaseModel
                     nightside_f = pm.Deterministic('nightsideDepth',e_depth * (1. - 2. * phaseAmp))
-                    #planet_amp = pm.Deterministic()
+                    planet_amp = pm.Deterministic('planetFullamp',e_depth * 2. * phaseAmp)
                 elif self.phaseCurveFormulation == 'approx':
                     light_curve = light_curve - amp + amp * phaseModel
                 else:
@@ -1993,13 +1993,26 @@ def calculate_nightside_spec(sp_all):
     Calculate the nightside spectrum from a phase curve
     """
     nightsideF = sp_all['e_depth'] * (1.0 - 2. * sp_all['phase_amp'])
-    fracDepthErr = sp_all['e_depth err'] / sp_all['e_depth']
-    fracAmpErr = sp_all['phase_amp err'] / sp_all['phase_amp']
-    product_err = sp_all['e_depth'] * sp_all['phase_amp'] * np.sqrt(fracDepthErr**2 + fracAmpErr**2)
-    nightsideF_var = sp_all['e_depth err']**2 + (2. * product_err)**2
+    # fracDepthErr = sp_all['e_depth err'] / sp_all['e_depth']
+    # fracAmpErr = sp_all['phase_amp err'] / sp_all['phase_amp']
+    # product_err = sp_all['e_depth'] * sp_all['phase_amp'] * np.sqrt(fracDepthErr**2 + fracAmpErr**2)
+    fullAmp, fullAmp_err = calculate_full_amp(sp_all)
+    nightsideF_var = sp_all['e_depth err']**2 + fullAmp_err**2
     nightsideF_err = np.sqrt(nightsideF_var)
     
     return nightsideF,nightsideF_err
+
+def calculate_full_amp(sp_all):
+    """
+    Calculate the full ampltiude = 2. * fractional amp * eclipse depth
+    """
+    fullAmp = sp_all['e_depth'] * 2. * sp_all['phase_amp']
+    fracDepthErr = sp_all['e_depth err'] / sp_all['e_depth']
+    fracAmpErr = sp_all['phase_amp err'] / sp_all['phase_amp']
+    product_err = sp_all['e_depth'] * sp_all['phase_amp'] * np.sqrt(fracDepthErr**2 + fracAmpErr**2)
+    fullAmp_err = product_err * 2.
+    return fullAmp, fullAmp_err
+
 
 def allanvar_wave(flux2D,err2D,showFloor=None,
                   binMax=2**12):
