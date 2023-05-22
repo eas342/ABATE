@@ -228,7 +228,10 @@ class exo_model(object):
             gather_telemetry.get_telem(self.paramPath,tserType=self.pipeType)
         dat = ascii.read(pathName)
         
-        self.fpah = np.array(dat['IGDP_NRC_A_T_LWFPAH1 diff'])
+        if self.pipeType == 'phot':
+            self.fpah = np.array(dat['IGDP_NRC_A_T_SWFPAH1 diff'])
+        else:
+            self.fpah = np.array(dat['IGDP_NRC_A_T_LWFPAH1 diff'])
 
     def check_phase(self):
         phase = (self.x - self.t0_lit[0]) / self.period_lit[0]
