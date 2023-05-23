@@ -42,10 +42,11 @@ def get_telem(tshirt_path,tserType='spec',smoothingOrder=5):
         mnemonic = 'IGDP_NRC_A_T_LWFPAH1'
         resultFile = tshirt_obj.specFile
     else:
-        raise NotImplementedError
-        # t1, t2 = spec.get_tSeries()
-        #x = t1['Time (JD)']
-        # mnemonic = 'IGDP_NRC_A_T_SWFPAH1'
+        tshirt_obj = phot_pipeline.phot(tshirt_path)
+        t1, t2 = tshirt_obj.get_tSeries()
+        x = t1['Time (JD)']
+        mnemonic = 'IGDP_NRC_A_T_SWFPAH1'
+        resultFile = tshirt_obj.photFile
 
     head = fits.getheader(resultFile,extname='ORIG HEADER')
     utc_bjd_offset = (head['MJDMIDI'] - head['BJDMID']) ## days

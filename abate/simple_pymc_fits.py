@@ -70,7 +70,7 @@ class exo_model(object):
                  fitSigma=None,
                  nbins=20,
                  oot_start=0,oot_end=100,
-                 trendType=None,
+                 trendType='poly',
                  poly_ord=None,
                  legacy_polynomial=False,
                  expStart=None,
@@ -230,7 +230,10 @@ class exo_model(object):
             gather_telemetry.get_telem(self.paramPath,tserType=self.pipeType)
         dat = ascii.read(pathName)
         
-        self.fpah = np.array(dat['IGDP_NRC_A_T_LWFPAH1 diff'])
+        if self.pipeType == 'phot':
+            self.fpah = np.array(dat['IGDP_NRC_A_T_SWFPAH1 diff'])
+        else:
+            self.fpah = np.array(dat['IGDP_NRC_A_T_LWFPAH1 diff'])
 
     def check_phase(self):
         phase = (self.x - self.t0_lit[0]) / self.period_lit[0]
@@ -1289,9 +1292,10 @@ class exo_model(object):
 
 
     def plot_test_point(self,modelDict,extraDescrip='',yLim=[None,None],
-                        yLim_resid=[None,None],redoWaveBinCheck=True):
+                        yLim_resid=[None,None],redoWaveBinCheck=True,
+                        showDetrended=False):
         """
-        Check the guess lightcurve
+        Check the guess or the maximum a priori lightcurve
     
         modelDict: dict with 'model'
             Dictionary for model. If a 'map_soln' is found, it will be plotted
@@ -1358,22 +1362,36 @@ class exo_model(object):
 #
 #         logp_est = -0.5 * np.sum((light_curve - self.y)**2/self.yerr**2)
 #         print('Logp (rough) = {}'.format(logp_est))
+        ## the old way
+        dataMask = modelDict['mask']
 
-    
-        fig, (ax,ax2) = plt.subplots(2,sharex=True)
+        if showDetrended == True:
+            fig, (ax,ax1,ax2) = plt.subplots(3,sharex=True)
+            if map_soln == True:
+                astroph_lc = modelDict['map_soln']['light_curves']
+                sysModel = light_curve / astroph_lc
+                yDetrend = modelDict['y'] / sysModel
+                yDetrend_err = modelDict['y'] / sysModel
+                ax1.errorbar(modelDict['x'][dataMask],yDetrend[dataMask],
+                             yerr=yDetrend_err[dataMask],fmt='.',
+                             zorder=1)
+                ax1.plot(modelDict['x'],astroph_lc,linewidth=3,zorder=2)
+        else:
+            fig, (ax,ax2) = plt.subplots(2,sharex=True)
+
         ax.errorbar(modelDict['x'],modelDict['y'],yerr=modelDict['yerr'],
                     fmt='.',zorder=0,color='red')
-        ax.errorbar(modelDict['x'][self.mask],modelDict['y'][self.mask],
-                    yerr=modelDict['yerr'][self.mask],
+        ax.errorbar(modelDict['x'][dataMask],modelDict['y'][dataMask],
+                    yerr=modelDict['yerr'][dataMask],
                     fmt='.',zorder=1)
         ax.plot(modelDict['x'],light_curve,linewidth=3,zorder=2)
     
         resid = modelDict['y'] - light_curve
-        ax2.errorbar(modelDict['x'][self.mask],resid[self.mask],
-                     yerr=modelDict['yerr'][self.mask],fmt='.',alpha=0.7)
+        ax2.errorbar(modelDict['x'][dataMask],resid[dataMask],
+                     yerr=modelDict['yerr'][dataMask],fmt='.',alpha=0.7)
         
-        x_bin, y_bin, y_bin_err = phot_pipeline.do_binning(modelDict['x'][self.mask],
-                                                           resid[self.mask],nBin=self.nbins_resid)
+        x_bin, y_bin, y_bin_err = phot_pipeline.do_binning(modelDict['x'][dataMask],
+                                                           resid[dataMask],nBin=self.nbins_resid)
         if self.equalize_bin_err == True:
             y_bin_err = np.ones_like(y_bin_err) * np.median(y_bin_err)
         
