@@ -1367,15 +1367,6 @@ class exo_model(object):
 
         if showDetrended == True:
             fig, (ax,ax1,ax2) = plt.subplots(3,sharex=True)
-            if map_soln == True:
-                astroph_lc = modelDict['map_soln']['light_curves']
-                sysModel = light_curve / astroph_lc
-                yDetrend = modelDict['y'] / sysModel
-                yDetrend_err = modelDict['y'] / sysModel
-                ax1.errorbar(modelDict['x'][dataMask],yDetrend[dataMask],
-                             yerr=yDetrend_err[dataMask],fmt='.',
-                             zorder=1)
-                ax1.plot(modelDict['x'],astroph_lc,linewidth=3,zorder=2)
         else:
             fig, (ax,ax2) = plt.subplots(2,sharex=True)
 
@@ -1383,9 +1374,22 @@ class exo_model(object):
                     fmt='.',zorder=0,color='red')
         ax.errorbar(modelDict['x'][dataMask],modelDict['y'][dataMask],
                     yerr=modelDict['yerr'][dataMask],
-                    fmt='.',zorder=1)
+                    fmt='.',zorder=1,label='Raw F')
         ax.plot(modelDict['x'],light_curve,linewidth=3,zorder=2)
-    
+
+        if showDetrended == True:
+            if map_soln == True:
+                astroph_lc = modelDict['map_soln']['light_curves']
+                sysModel = light_curve / astroph_lc
+                yDetrend = modelDict['y'] / sysModel
+                yDetrend_err = modelDict['yerr'] / sysModel
+                ax1.errorbar(modelDict['x'][dataMask],yDetrend[dataMask],
+                             yerr=yDetrend_err[dataMask],fmt='.',
+                             zorder=1,label='Detrended')
+                ax1.plot(modelDict['x'],astroph_lc,linewidth=3,zorder=2)
+                ax1.legend()
+                ax.legend()
+
         resid = modelDict['y'] - light_curve
         ax2.errorbar(modelDict['x'][dataMask],resid[dataMask],
                      yerr=modelDict['yerr'][dataMask],fmt='.',alpha=0.7)
