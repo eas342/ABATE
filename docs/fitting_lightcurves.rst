@@ -125,7 +125,9 @@ What of kind of trend should be fit to the data? Options are
 * :code:`None` Assumes the baseline is flat
 * :code:`poly` Assumes a polynomial centered at the median time and has the order
 * :code:`fpah` Assumes a linear function of the focal plane housing (FPAH) temperature deviation
+* :code:`refpix` Assumes a linear function of the mean reference pixels
 * :code:`poly+fpah` Assumes a polynomial and a linear function with focal plane array housing (FPAH) temp 
+
 
 poly_ord
 ~~~~~~~~~
@@ -147,6 +149,12 @@ What is the geometry of the eclipse. Possibilities include "Transit", "Eclipse" 
 fitSinusoid
 ~~~~~~~~~~~
 Fit a sinusoid to the phase curve variations?
+
+phaseCurveFormulation
+~~~~~~~~~~~~~~~~~~~~~
+
+If it is 'old-legacy', it was a quick wrong way Fp(phi) - (1.0 - A cos(phi + phi_0))
+'standard', it will be Fp(phi) = (1.0 - A - A cos(phi + phi_0))
 
 expStart
 ~~~~~~~~

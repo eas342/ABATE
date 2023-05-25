@@ -71,6 +71,7 @@ class exo_model(object):
                  nbins=20,
                  oot_start=0,oot_end=100,
                  trendType='poly',
+                 refpixDatFile='',
                  poly_ord=None,
                  legacy_polynomial=False,
                  expStart=None,
@@ -189,6 +190,7 @@ class exo_model(object):
         self.oot_end = oot_end
         
         self.trendType = trendType
+        self.refpixDatFile = refpixDatFile
         self.poly_ord = poly_ord
         self.legacy_polynomial = legacy_polynomial
         
@@ -214,6 +216,8 @@ class exo_model(object):
 
         if 'fpah' in self.trendType:
             self.get_telem_vec()
+        if 'refpix' in self.trendType:
+            self.get_refpix_vec()
     
     def get_telem_vec(self):
         """
@@ -234,6 +238,17 @@ class exo_model(object):
             self.fpah = np.array(dat['IGDP_NRC_A_T_SWFPAH1 diff'])
         else:
             self.fpah = np.array(dat['IGDP_NRC_A_T_LWFPAH1 diff'])
+    
+    def get_refpix_vec(self):
+        """
+        Gather the reference pixel telemetry
+        """
+        if os.path.exists(self.refpixDatFile) == False:
+            raise Exception("Could not find refpix file {}".format(self.refpixDatFile))
+        else:
+            refpixDat = ascii.read(self.refpixDatFile)
+        
+        self.refpix = refpixDat['mean refpix'] - np.median(refpixDat['mean refpix'])
 
     def check_phase(self):
         phase = (self.x - self.t0_lit[0]) / self.period_lit[0]
@@ -461,12 +476,19 @@ class exo_model(object):
                     fpah_in = self.fpah_full_res
                 else:
                     fpah_in = self.fpah
-
+            if 'refpix' in self.trendType:
+                if hasattr(self,'refpix_full_res'):
+                    refpix_in = self.refpix_full_res
+                else:
+                    refpix_in = self.refpix
+            
             if self.timeBin is None:
                 ## no binning of lightcurves
                 x, y, yerr = x_in, y_in, yerr_in
                 if 'fpah' in self.trendType:
                     fpah = fpah_in
+                if 'refpix' in self.trendType:
+                    refpix = refpix_in
             else:
                 if (self.timeBin < len(mask)) | hasattr(self,'full_res_mask'):
                     ### Handles two cases
@@ -483,7 +505,9 @@ class exo_model(object):
 
                     if 'fpah' in self.trendType:
                         fpah_to_bin = fpah_in[self.full_res_mask]
-
+                    if 'refpix' in self.trendType:
+                        refpix_to_bin = refpix_in[self.full_res_mask]
+                    
                     ## do nothing if the mask is meant for binned data
                     if (self.timeBin == len(mask)):
                         pass
@@ -500,7 +524,9 @@ class exo_model(object):
                     y_to_bin = y_in
                     if 'fpah' in self.trendType:
                         fpah_to_bin = fpah_in
-                
+                    if 'refpix' in self.trendType:
+                        refpix_to_bin = refpix_in    
+
                 x, y, yerr = phot_pipeline.do_binning(x_to_bin, y_to_bin,nBin=self.timeBin)
                 y = np.ascontiguousarray(y)
                 yerr = np.ascontiguousarray(yerr)
@@ -512,7 +538,12 @@ class exo_model(object):
                                                                 fpah_to_bin,
                                                                 nBin=self.timeBin)
                     fpah = np.ascontiguousarray(fpah)
-
+                if 'refpix' in self.trendType:
+                    xrefpix,refpix,refpix_err = phot_pipeline.do_binning(x_to_bin,
+                                                                refpix_to_bin,
+                                                                nBin=self.timeBin)
+                    refpix = np.ascontiguousarray(refpix)
+                
                 finite_y = np.isfinite(y)
                 
                 mask = mask & finite_y ## make sure to only include finite points
@@ -529,13 +560,17 @@ class exo_model(object):
                         self.yerr_full_res = deepcopy(self.yerr)
                         if 'fpah' in self.trendType:
                             self.fpah_full_res = deepcopy(self.fpah)
+                        if 'refpix' in self.trendType:
+                            self.refpix_full_res = deepcopy(self.refpix)
 
                     self.x = x
                     self.y = y
                     self.yerr = yerr
                     if 'fpah' in self.trendType:
                         self.fpah = fpah
-
+                    if 'refpix' in self.trendType:
+                        self.refpix = refpix
+                
                 if self.offsetMask is not None:
                     if hasattr(self,'full_res_offsetMask') == True:
                         pass
@@ -717,7 +752,10 @@ class exo_model(object):
             if 'fpah' in self.trendType:
                 telemCoeff = pm.Normal('fpahCoeff',mu=0,sigma=5e-3)
                 lc_trend_vector_multiplier = lc_trend_vector_multiplier * (1.0 + fpah * telemCoeff)
-
+            if 'refpix' in self.trendType:
+                refpixCoeff = pm.Normal('refpixCoeff',mu=0,sigma=0.5)
+                lc_trend_vector_multiplier = lc_trend_vector_multiplier * (1.0 + refpix * refpixCoeff)
+            
             if self.offsetMask is None:
                 pass
             else:
