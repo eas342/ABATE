@@ -641,10 +641,10 @@ class exo_model(object):
                 )
         
                 light_curves_obj = xo.LimbDarkLightCurve(u_star)
-                light_curves_var = light_curves_obj.get_light_curve(orbit=orbit, r=ror,
-                                                                    t=x, texp=self.texp)
+                light_curves1 = light_curves_obj.get_light_curve(orbit=orbit, r=ror,
+                                                                 t=x, texp=self.texp)
         
-                light_curve = (tt.sum(light_curves, axis=-1) + 1.)
+                light_curve = (tt.sum(light_curves1, axis=-1) + 1.)
             
                 
             else:
