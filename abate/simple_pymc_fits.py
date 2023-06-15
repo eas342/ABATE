@@ -219,10 +219,15 @@ class exo_model(object):
         if 'refpix' in self.trendType:
             self.get_refpix_vec()
     
-    def get_telem_vec(self):
+    def get_telem_vec(self,reDo=False):
         """
         Get a vector from spacecraft telemetry
         'e.g.' Focal plane housing array temperature
+
+        Parameters
+        -----------
+        reDo: bool
+            Re-do the telemetry vector?
         """
         if self.pipeType == 'spec':
             fileDescrip = self.spec.dataFileDescrip
@@ -230,7 +235,7 @@ class exo_model(object):
             fileDescrip = self.phot.dataFileDescrip
         
         pathName = gather_telemetry.telemfile_path(fileDescrip)
-        if os.path.exists(pathName) == False:
+        if (os.path.exists(pathName) == False) | (reDo==True):
             gather_telemetry.get_telem(self.paramPath,tserType=self.pipeType)
         dat = ascii.read(pathName)
         
