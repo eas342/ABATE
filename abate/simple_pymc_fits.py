@@ -84,6 +84,7 @@ class exo_model(object):
                  override_times=None,
                  eclipseGeometry="Transit",
                  ror_prior=None,
+                 e_depth_guess=1e-3,
                  equalize_bin_err=False,
                  fixLDu1=False,
                  fit_t0_spec=False,
@@ -112,6 +113,7 @@ class exo_model(object):
         self.cores = cores
         self.nchains = nchains
         self.pymc3_init = pymc3_init
+        self.e_depth_guess = e_depth_guess
         
         self.eclipseGeometry = eclipseGeometry
         self.ror_prior= ror_prior
@@ -377,7 +379,7 @@ class exo_model(object):
                 #t0 = t0_lit[0]
                 
                 if (self.eclipseGeometry == 'Eclipse') | (self.eclipseGeometry == 'PhaseCurve'):
-                    e_depth = pm.Normal("e_depth",mu=1e-3,sigma=2e-3)
+                    e_depth = pm.Normal("e_depth",mu=self.e_depth_guess,sigma=2e-3)
                     if self.ror_prior is None:
                         raise Exception("Must have an ror prior for eclipse")
                     ror = pm.TruncatedNormal("ror",mu=self.ror_prior[0],
@@ -1450,7 +1452,10 @@ class exo_model(object):
         ax2.set_ylabel("Residual (ppt)")
         ax2.set_xlabel("Time (JD)")
         ax2.set_ylim(yLim_resid[0],yLim_resid[1])
-    
+
+        if showDetrended == True:
+            extraDescrip = '_w_detrend' + extraDescrip
+
         combined_descrip = 'mapsoln_{}_{}_{}'.format(map_soln,self.descrip,extraDescrip)
         lc_path = os.path.join('plots','lc_plots',self.descrip)
         if os.path.exists(lc_path) == False:
@@ -1577,11 +1582,19 @@ class exo_model(object):
             varList.append('sigma_lc')
         
         
-        if self.trendType == 'poly':
+        if 'poly' in self.trendType:
             for oneCoeff in np.arange(self.poly_ord):
                 varnames.append('poly_coeff')
                 varList.append('poly_coeff__{}'.format(oneCoeff))
         
+        if 'fpah' in self.trendType:
+            varnames.append('fpahCoeff')
+            varList.append('fpahCoeff')
+        
+        if 'refpix' in self.trendType:
+            varnames.append('refpixCoeff')
+            varList.append('refpixCoeff')
+
         if self.offsetMask is None:
             pass
         else:
