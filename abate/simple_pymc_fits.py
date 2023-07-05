@@ -793,14 +793,14 @@ class exo_model(object):
                 phaseModel = 1.0 - phaseAmp * tt.cos(arg)
                 ## save a variable for the phase variations
                 phaseModelVar = pm.Deterministic('phaseModel',phaseModel)
-                light_curves_trended = light_curves_trended * phaseModel
+                light_curves_semifinal = light_curves_trended * phaseModel
 
             if self.expStart == True:
                 expTau = pm.Lognormal("exp_tau",mu=np.log(1e-3),sd=2)
                 expAmp = pm.Normal("exp_amp",mu=1e-3,sd=1e-2)
                 exp_eval = (1. - expAmp * tt.exp(-(x - np.min(x)) / expTau))
                 exp_model = pm.Deterministic('exp_model',exp_eval)
-                light_curves_final = pm.Deterministic("lc_final",light_curves_trended * exp_model)
+                light_curves_semifinal = light_curves_trended * exp_model
             elif self.expStart == 'double':
                 expTau1 = pm.Lognormal("exp_tau1",mu=np.log(1e-3),sd=2)
                 expAmp1 = pm.Normal("exp_amp1",mu=1e-3,sd=1e-2)
@@ -809,9 +809,9 @@ class exo_model(object):
                 xrel = x - np.min(x)
                 exp_eval = (1. - expAmp1 * tt.exp(-(xrel) / expTau1) - expAmp2 * tt.exp(-(xrel) / expTau2))
                 exp_model = pm.Deterministic('exp_model',exp_eval)
-                light_curves_final = pm.Deterministic("lc_final",light_curves_trended * exp_model)
+                light_curves_semifinal = light_curves_trended * exp_model
             else:
-                light_curves_final = pm.Deterministic("lc_final",light_curves_trended)
+                light_curves_semifinal = light_curves_trended
             
             ## the mean converts to parts per thousand
         
@@ -835,28 +835,29 @@ class exo_model(object):
             # ## the correlations are on 0.02 day timescales
             # rho_gp = pm.Lognormal("rho_gp", mu=np.log(1e-2), sigma=0.5)
             #
-            # ## the Gaussian process error should be larger given all the ground-based systematics
-            # sigma_gp = pm.Lognormal("sigma_gp", mu=np.log(np.std(self.y[mask]) * 5.), sigma=0.5)
-            #
-            # tau_gp = pm.Lognormal("tau_gp",mu=np.log(1e-2), sigma=0.5)
-            #
-            # kernel = terms.SHOTerm(sigma=sigma_gp, rho=rho_gp, tau=tau_gp)
-            # ## trying Matern 3/2
-            # #kernel = terms.Matern32Term(sigma=sigma_gp,rho=rho_gp)
-            #
-            # gp = GaussianProcess(kernel, t=x[mask], yerr=sigma_lc,quiet=True)
-            # gp.marginal("gp", observed=resid)
-            # #gp_pred = pm.Deterministic("gp_pred", gp.predict(resid))
-            # final_lc = pm.Deterministic("final_lc",light_curve + gp.predict(resid))
-            #
-            # # Fit for the maximum a posteriori parameters, I've found that I can get
-            # # a better solution by trying different combinations of parameters in turn
-        
-        
-            pm.Normal("obs", mu=light_curves_final[mask], sd=sigma_lc, observed=y[mask])
-        
-            #pdb.set_trace()
+            if 'gp' in self.trendType:
+            ## assume a similar order of magnitude as the errorbars
+                sigma_gp = pm.Lognormal("sigma_gp", mu=np.log(np.median(yerr)), sigma=0.5,
+                                        testval=np.median(yerr) * 0.5)
+                rho_gp_guess = (np.max(self.x) - np.min(self.x))
+                rho_gp = pm.Lognormal("rho_gp", mu=np.log(rho_gp_guess), sigma=0.05,
+                                      testval=rho_gp_guess)
+                ## non-periodic stochastically-driven, damped harmonic oscillator
+                kernel = terms.SHOTerm(sigma=sigma_gp, rho=rho_gp, Q=0.25)
 
+                ## trying Matern 3/2
+                #kernel = terms.Matern32Term(sigma=sigma_gp,rho=rho_gp)           
+                gp = GaussianProcess(kernel, t=x[mask], yerr=sigma_lc,quiet=True)
+
+                light_curves_no_GP = pm.Deterministic("lc_no_GP",light_curves_semifinal)
+                resid = y[mask] - light_curves_no_GP[mask]
+
+                gp.marginal("gp", observed=resid)
+                
+                light_curves_final = pm.Deterministic("lc_final",light_curves_no_GP  + gp.predict(resid,t=x))
+            else:
+                light_curves_final = pm.Deterministic("lc_final",light_curves_semifinal)
+                pm.Normal("obs", mu=light_curves_final[mask], sd=sigma_lc, observed=y[mask])
     
         resultDict = {}
         resultDict['model'] = model
@@ -1867,7 +1868,8 @@ class exo_model(object):
         modelDict = self.build_model()
         mapDict = self.find_mxap_with_clipping(modelDict)
         self.save_mxap_lc(mapDict)
-        self.plot_test_point(mapDict)
+        for showDetrended in [True,False]:
+            self.plot_test_point(mapDict,showDetrended=showDetrended)
         postDict = self.find_posterior(mapDict)
         self.print_es_summary(postDict)
         self.corner_plot(postDict,compact=False)
