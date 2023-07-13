@@ -1427,13 +1427,14 @@ class exo_model(object):
             if map_soln == True:
                 astroph_lc = modelDict['map_soln']['light_curves']
                 sysModel = light_curve / astroph_lc
-                yDetrend = modelDict['y'] / sysModel
-                yDetrend_err = modelDict['yerr'] / sysModel
+                yDetrend = modelDict['y'] / sysModel * 1e3
+                yDetrend_err = modelDict['yerr'] / sysModel * 1e3
                 ax1.errorbar(modelDict['x'][dataMask],yDetrend[dataMask],
                              yerr=yDetrend_err[dataMask],fmt='.',
                              zorder=1,label='Detrended')
-                ax1.plot(modelDict['x'],astroph_lc,linewidth=3,zorder=2)
+                ax1.plot(modelDict['x'],astroph_lc * 1e3,linewidth=3,zorder=2)
                 ax1.legend()
+                ax1.set_ylabel("Flux (ppt)")
                 ax.legend()
 
         resid = modelDict['y'] - light_curve
@@ -1538,7 +1539,8 @@ class exo_model(object):
     
         return resultDict
 
-    def print_es_summary(self,resultDict,broadband=True,waveName=None):
+    def print_es_summary(self,resultDict,broadband=True,waveName=None,
+                         saveChisq=True):
         ## set up two variable arrays to grab posteriors from pandas_dataframe
         ## varnames are the variable names used by pymc3
         ## varList is what they will look like in the pandas dataframe
@@ -1634,6 +1636,25 @@ class exo_model(object):
             means.append(mean)
             stds.append(std1)
         
+        if saveChisq == True:
+            ## save the likelihood info
+            mask1 = resultDict['mask']
+            pts = np.sum(mask1)
+            resid = (resultDict['y'][mask1] - resultDict['map_soln']['lc_final'][mask1]) 
+            chisq_full = np.sum(resid**2 / resultDict['yerr'][mask1]**2)
+            nparams = len(resultDict['model'].basic_RVs)
+            dof = pts - nparams
+            norm_chisq = chisq_full / dof
+            BIC = nparams * np.log(pts) + 2. * chisq_full
+
+            available_varList.append('norm chisq')
+            means.append(norm_chisq)
+            available_varList.append('BIC')
+            means.append(BIC)
+            stds.append(np.nan)
+            stds.append(np.nan)
+
+
         t = Table()
         t['var name'] = available_varList
         t['mean'] = means
