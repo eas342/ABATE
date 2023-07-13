@@ -81,6 +81,7 @@ class exo_model(object):
                  wbin_starts=None,
                  wbin_ends=None,
                  nbins_resid=120,
+                 ld_start=None,
                  override_times=None,
                  eclipseGeometry="Transit",
                  ror_prior=None,
@@ -128,6 +129,13 @@ class exo_model(object):
         if self.u_lit == 'interpSpecOnly':
             self.set_up_limbdarkening_interpolation()
 
+        if ld_start is None:
+            if (ld_law == 'quadratic'):
+                self.ld_start = [0.71,0.1]
+            else:
+                self.ld_start = np.zeros(self.starry_ld_degree) + 0.1
+        else:
+            self.ld_start = ld_start        
         # paramPath = 'parameters/spec_params/jwst/sim_mirage_009_grismr_8grp/spec_mirage_009_p014_ncdhas_mpm_skip_xsub.yaml'
         # descrip = 'grismr_003_no_xsub'
 
@@ -327,13 +335,12 @@ class exo_model(object):
             elif (self.u_lit == None) | (fitLimbDarkParamsOverride == True):
                 if (self.eclipseGeometry == 'Transit') | (self.eclipseGeometry == 'PhaseCurve'):
                     if self.ld_law == 'quadratic':
-                        u_star = xo.QuadLimbDark("u_star",testval=[0.71,0.1])
+                        u_star = xo.QuadLimbDark("u_star",testval=self.ld_start)
                     else:
                         # u_star = pm.Lognormal("u_star",mu=np.log(0.1), sigma=0.5,
     #                                             shape=(default_starry_ld_deg,))
-                        ld_start = np.zeros(self.starry_ld_degree) + 0.1
                         #ld_start[0] = 0.1
-                        testVal = ld_start
+                        testVal = self.ld_start
                         u_star = pm.Normal("u_star",mu=ld_start,testval=ld_start,
                                            sigma=2.0,
                                            shape=(self.starry_ld_degree,))

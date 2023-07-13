@@ -118,6 +118,10 @@ fixLDu1
 ~~~~~~~
 For spectroscopic fits, fix the Limb Darkening coefficient u1 at the posterior value from the broadband.
 
+ld_start
+~~~~~~~~
+Optionally change theh limb darkening starting guess
+
 trendType
 ~~~~~~~~~
 What of kind of trend should be fit to the data? Options are
