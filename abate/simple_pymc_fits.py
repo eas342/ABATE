@@ -1643,6 +1643,17 @@ class exo_model(object):
             means.append(mean)
             stds.append(std1)
         
+        ## Save q1 and q2 if available
+        if ('u_star__0' in samples) & ('u_star__1' in samples):
+            q1 = (samples['u_star__0'] + samples['u_star__1'])**2
+            q2 = samples['u_star__0'] / (2. * (samples['u_star__0'] + samples['u_star__1']))
+            available_varList.append('q1')
+            means.append(np.mean(q1))
+            stds.append(np.std(q1))
+            available_varList.append('q2')
+            means.append(np.mean(q2))
+            stds.append(np.std(q2))
+
         if saveChisq == True:
             ## save the likelihood info
             mask1 = resultDict['mask']
