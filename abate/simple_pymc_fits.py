@@ -931,7 +931,7 @@ class exo_model(object):
         specInfo['waveMid'] = waveMid[waveBinNum]
 
         resultDict = self.build_model(specInfo=specInfo)
-        
+        resultDict['specInfo'] = specInfo
         
     
         #resultDict['gp'] = gp
