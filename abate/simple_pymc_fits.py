@@ -194,7 +194,15 @@ class exo_model(object):
         np.random.seed(42) 
     
         # Allow a re-calculation of yerr in case it is under-estimated
-        self.fitSigma = fitSigma
+        allowedFitSigma = ['oot','fit',None]
+        if fitSigma in allowedFitSigma:
+            self.fitSigma = fitSigma
+        else:
+            xtraText = "A common mistake is fitSigma=True instead of fitsSigma='fit'"
+            raise Exception('fitSigma={} not in {}. {}'.format(fitSigma,
+                                                                     allowedFitSigma,
+                                                                     xtraText))
+        
         # self.useOOTforError = useOOTforError
         self.oot_start = oot_start
         self.oot_end = oot_end
@@ -605,7 +613,6 @@ class exo_model(object):
                 sigma_lc = pm.Lognormal("sigma_lc", mu=np.log(np.median(yerr)), sigma=0.5)
             elif self.fitSigma == 'oot':
                 sigma_lc = np.std(y[self.oot_start:self.oot_end])
-                
             else:
                 sigma_lc = yerr[mask]
             
@@ -1587,7 +1594,7 @@ class exo_model(object):
             varList.append('ecc')
             varList.append('omega')
         
-        if (self.fitSigma == True):
+        if (self.fitSigma == 'fit'):
             varnames.append('sigma_lc')
             varList.append('sigma_lc')
         

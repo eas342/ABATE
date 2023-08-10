@@ -114,6 +114,13 @@ ld_law
 
 This variable is a string, set to either 'quadratic' or 'multiterm', which determines the length of the list for u_lit.
 
+
+fitSigma
+~~~~~~~~
+Re-fit the error bar in the optimization/posteriors?
+If fitSigma is "fit", it will be fit to 1 value for all fluxes.
+If "oot" it will use the out-of-transit value. If None, it will use the value from yerr.
+
 fixLDu1
 ~~~~~~~
 For spectroscopic fits, fix the Limb Darkening coefficient u1 at the posterior value from the broadband.
