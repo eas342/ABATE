@@ -348,7 +348,7 @@ class exo_model(object):
                         # u_star = pm.Lognormal("u_star",mu=np.log(0.1), sigma=0.5,
     #                                             shape=(default_starry_ld_deg,))
                         #ld_start[0] = 0.1
-                        testVal = self.ld_start
+                        ld_start = self.ld_start
                         u_star = pm.Normal("u_star",mu=ld_start,testval=ld_start,
                                            sigma=2.0,
                                            shape=(self.starry_ld_degree,))
