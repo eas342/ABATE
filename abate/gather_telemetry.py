@@ -79,8 +79,11 @@ def get_telem(tshirt_path,tserType='spec',smoothingOrder=5):
     make_sure_of_path('plots/telemetry')
     ax.set_xlabel("Time (JD)")
     ax.set_ylabel(mnemonic)
-    fig.savefig('plots/telemetry/{}_vs_time.png'.format(mnemonic),bbox_inches='tight',
-                dpi=150)
+    plotFile = 'plots/telemetry/{}_vs_time_{}.png'.format(mnemonic,
+                                                         tshirt_obj.dataFileDescrip)
+    fig.savefig(plotFile,
+                bbox_inches='tight',
+                dpi=150,facecolor='white')
     
     t = Table()
     t['Time'] = x
