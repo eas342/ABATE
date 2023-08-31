@@ -108,6 +108,8 @@ pipeType
 ~~~~~~~~~
 
 This variable is a string, set to either 'phot' for photometry or 'spec' for spectroscopy.
+Or, you can set the input X/Y manually to :code:`customPhot` for custom photometry and 
+specify the data in :code:`customData`
 
 ld_law
 ~~~~~~~
@@ -169,7 +171,8 @@ If it is 'old-legacy', it was a quick wrong way Fp(phi) - (1.0 - A cos(phi + phi
 
 expStart
 ~~~~~~~~
-Should the beginning be fit with an exponential?
+Should the beginning be fit with an exponential? If True, there will be one exponential.
+If set to "double", two exponentials will be used.
 
 mask
 ~~~~
@@ -194,6 +197,28 @@ You can manually specify the start pixels in the dispersion direction for wavele
 wbin_ends
 ~~~~~~~~~
 You can manually specify the end pixels in the dispersion direction for wavelength bins, which is passed to `make_wavebin_series <https://tshirt.readthedocs.io/en/latest/modules.html#tshirt.pipeline.spec_pipeline.spec.make_wavebin_series>`_
+
+correctedBinCenters
+~~~~~~~~~~~~~~~~~~~~
+By default, ABATE assumes that the center of each wavelength bin is the middle of the pixels 
+defining that bin. However, for highly non-linear dispersiosn (such as a prism), the wavelength 
+center is not the same as the pixel center.
+If correctedBinCenters is True, the central wavelength is returned for the spectrum.
+If correctedBinCenters is False, the detector pixel center evaluated with the wavelength solution
+is returned as the wavelength center.
+It should be used as True in future cases, but with compatibility with previous runs, 
+correctedBinCenters can be set to False.
+
+customData
+~~~~~~~~~~
+By default, ABATE assumes that the input data comes from a :code:`tshirt` parameter file.
+It may be preferable to put in custom data by setting :code:`pipeType='customPhot'`
+In this case, :code:`customData` should be in the format of a dictionary, with the following keys
+:code:`x` : the time coordinate in BJD
+:code:`y` : the flux, which will be automatically re-normalized
+:code:`yerr` : the error in flux,  which will be automatically re-normalized
+:code:`srcname` : 
+If :code:`customData` is :code:`None`, it will be ignored.
 
 TShirt
 ------

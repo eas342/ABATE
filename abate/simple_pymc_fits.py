@@ -91,6 +91,8 @@ class exo_model(object):
                  fit_t0_spec=False,
                  fitSinusoid=False,
                  phaseCurveFormulation='standard',
+                 correctedBinCenters=False,
+                 customData=None,
                  ):
         #paramPath = 'parameters/spec_params/jwst/sim_mirage_007_grismc/spec_mirage_007_p015_full_emp_cov_weights_nchdas_mmm.yaml'
         #paramPath = 'parameters/spec_params/jwst/sim_mirage_007_grismc/spec_mirage_007_p016_full_emp_cov_weights_ncdhas_ppm.yaml'
@@ -146,7 +148,17 @@ class exo_model(object):
         self.paramFile = os.path.join(tshirtDir,paramPath)
         
         self.pipeType = pipeType
-        if pipeType == 'phot':
+        if pipeType == 'customPhot':
+            self.customData = customData
+            t1 = Table()
+            t1['Time'] = customData['x']
+            normVal = np.nanmedian(customData['y'])
+            t1['Flux'] = customData['y'] / normVal
+            t2 = Table()
+            t2['Time'] = customData['x']
+            t2['Flux'] = customData['yerr'] / normVal
+            timeKey = 'Time'
+        elif pipeType == 'phot':
             self.phot = phot_pipeline.phot(self.paramFile)
             t1, t2 = self.phot.get_tSeries()
             timeKey = 'Time (JD)'
@@ -217,6 +229,7 @@ class exo_model(object):
         self.timeBin = timeBin
         self.override_times = override_times
         
+        self.correctedBinCenters = correctedBinCenters
         self.wbin_starts = wbin_starts
         self.wbin_ends = wbin_ends
         
@@ -224,10 +237,10 @@ class exo_model(object):
         self.equalize_bin_err = equalize_bin_err
 
         self.broadband_fit_file = 'fit_results/broadband_fit_{}.csv'.format(self.descrip)
-        if pipeType == 'phot':
-            self.specFileName = None
-        else:
+        if pipeType == 'spec':
             self.specFileName = os.path.join('fit_results',self.descrip,'spectrum_{}.csv'.format(self.descrip))
+        else:
+            self.specFileName = None
         
         self.fitSinusoid = fitSinusoid
         self.phaseCurveFormulation = phaseCurveFormulation
@@ -249,8 +262,10 @@ class exo_model(object):
         """
         if self.pipeType == 'spec':
             fileDescrip = self.spec.dataFileDescrip
-        else:
+        elif self.pipeType == 'phot':
             fileDescrip = self.phot.dataFileDescrip
+        else:
+            raise Exception("Telemetry not set up for pipType={}".format(self.pipeType))
         
         pathName = gather_telemetry.telemfile_path(fileDescrip)
         if (os.path.exists(pathName) == False) | (reDo==True):
@@ -1061,7 +1076,7 @@ class exo_model(object):
                                               binStarts=self.wbin_starts,
                                               binEnds=self.wbin_ends,recalculate=True)
         tnoise = self.spec.print_noise_wavebin(nbins=nbins,recalculate=False)
-        waveList = tnoise['Wave (mid)']
+        waveList = tnoise['Wave (mid px)']
         for oneBin in bin_arr:
             modelDict1 = self.build_model_spec(waveBinNum=oneBin,nbins=nbins)
             waveName = "{}_nbins_{}".format(waveList[oneBin],nbins)
@@ -1126,7 +1141,7 @@ class exo_model(object):
             bin_arr = np.arange(nbins)
             ror_list = []
             tnoise = self.spec.print_noise_wavebin(nbins=nbins,recalculate=False)
-            waveList = tnoise['Wave (mid)']
+            waveList_midpx = tnoise['Wave (mid px)']
             x_list = []
             y_list = []
             yerr_list = []
@@ -1138,7 +1153,7 @@ class exo_model(object):
                 modelDict1 = self.build_model_spec(waveBinNum=oneBin,nbins=nbins,
                                                    forceRecalculate=False)
                 modelDict1['map_soln'] = 'placeholder'
-                waveName = "{}_nbins_{}".format(waveList[oneBin],nbins)
+                waveName = "{}_nbins_{}".format(waveList_midpx[oneBin],nbins)
                 resultDict = self.find_posterior(modelDict1,extraDescrip="_{}".format(waveName))
                 x_list.append(modelDict1['x'])
                 y_list.append(modelDict1['y'])
@@ -1153,7 +1168,8 @@ class exo_model(object):
                 mask_list.append(modelDict1['mask'])
         
             result = {}
-            result['wave'] = np.array(waveList)
+            waveStart, waveEnd, waveMid, dispIndicesTable = self.lookup_waveBins(nbins=nbins)    
+            result['wave'] = waveMid
             result['x'] = np.array(x_list)
             result['y'] = np.array(y_list)
             result['yerr'] = np.array(yerr_list)
@@ -1233,7 +1249,13 @@ class exo_model(object):
         dispIndicesTable = Table(HDUList['DISP INDICES'].data)
         waveStart=np.round(self.spec.wavecal(dispIndicesTable['Bin Start']-0.5),5)
         waveEnd=np.round(self.spec.wavecal(dispIndicesTable['Bin End']-0.5),5)
-        waveMid = np.round(self.spec.wavecal(dispIndicesTable['Bin Middle']-0.5),5)
+
+        if self.correctedBinCenters == True:
+            waveMid = (waveStart + waveEnd)/2.
+            midPxWave = self.spec.wavecal(dispIndicesTable['Bin Middle']-0.5)
+            dispIndicesTable['Wave mid px'] = np.round(midPxWave,5)
+        else:
+            waveMid = self.spec.wavecal(dispIndicesTable['Bin Middle']-0.5)
 
         return waveStart, waveEnd, waveMid, dispIndicesTable
 
@@ -1246,7 +1268,7 @@ class exo_model(object):
         bin_arr = np.arange(nbins)
         
         tnoise = self.spec.print_noise_wavebin(nbins=nbins)
-        waveList = tnoise['Wave (mid)']
+        waveList = tnoise['Wave (mid px)']
 
         if gatherAll == True:
             spec_dict = {}
@@ -1288,6 +1310,7 @@ class exo_model(object):
 
         t = Table()
         t['wave start'] = waveStart
+        ## average wavelength is not the same as wavelenght of avg pixel
         t['wave mid'] = waveMid
         t['wave end'] = waveEnd
         t['wave width'] = np.round(t['wave end'] - t['wave start'],4)
@@ -1305,6 +1328,8 @@ class exo_model(object):
         t['pxbin start'] = dispIndicesTable['Bin Start']
         t['pxbin end'] = dispIndicesTable['Bin End']
         t['pxbin mid'] = dispIndicesTable['Bin Middle']
+        ## average wavelength is not the same as wavelenght of avg pixel
+        t['pxbin mid wv'] = self.spec.wavecal(t['pxbin mid'])
         outName = self.specFileName
         t.write(outName,overwrite=True)
         return t    
