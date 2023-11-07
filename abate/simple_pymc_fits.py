@@ -960,12 +960,13 @@ class exo_model(object):
     
         return resultDict
 
-    def find_mxap(self,resultDict,start=None):
+    def find_mxap(self,resultDict,start=None,recalculate=False):
         if start is None:
             #start = model.test_point
             start = resultDict['model'].test_point
         
         model = resultDict['model']
+
         with model:
             # t0 = model.t0
             # ror = model.ror
@@ -1010,15 +1011,29 @@ class exo_model(object):
         ## make sure it doesn't add in any new points that were masked out at the start 
         self.mask = newMask & self.startMask
         
-    def find_mxap_with_clipping(self,modelDict,iterations=2):
-        for oneIter in np.arange(iterations):
-            if oneIter > 0:
-                ## only update the mask after the first run
-                self.update_mask(mxapDict)
-                specInfo = deepcopy(modelDict['specInfo'])
-                modelDict = self.build_model(specInfo=specInfo)
-                
-            mxapDict = self.find_mxap(modelDict)
+    def find_mxap_with_clipping(self,modelDict,iterations=2,
+                                extraDescrip='',recalculate=False):
+        outName = 'mxap_{}{}.npz'.format(self.descrip,extraDescrip)
+        mxapDir = os.path.join('fit_mxap',self.descrip)
+        make_sure_of_path(mxapDir)
+        mxapPath = os.path.join(mxapDir,outName)
+
+        if (os.path.exists(mxapPath) == True) & (recalculate == False):
+            npzfiles  = np.load(mxapPath)#,allow_pickle=True)
+            mxapSoln = dict(npzfiles)
+            mxapDict = modelDict
+            mxapDict['map_soln'] = mxapSoln
+        else:
+
+            for oneIter in np.arange(iterations):
+                if oneIter > 0:
+                    ## only update the mask after the first run
+                    self.update_mask(mxapDict)
+                    specInfo = deepcopy(modelDict['specInfo'])
+                    modelDict = self.build_model(specInfo=specInfo)
+                    
+                mxapDict = self.find_mxap(modelDict)
+            np.savez(mxapPath,**mxapDict['map_soln'])
         
         return mxapDict
     
@@ -1080,14 +1095,16 @@ class exo_model(object):
         for oneBin in bin_arr:
             modelDict1 = self.build_model_spec(waveBinNum=oneBin,nbins=nbins)
             waveName = "{}_nbins_{}".format(waveList[oneBin],nbins)
+            extraDescrip="_{}".format(waveName)
             if doInference == True:
-                resultDict = self.find_posterior(modelDict1,extraDescrip="_{}".format(waveName))
+                resultDict = self.find_posterior(modelDict1,extraDescrip=extraDescrip)
                 
                 t = self.print_es_summary(resultDict,broadband=False,
                                      waveName=waveName)
             else:
                 x1, y1, yerr1, waveName1 = self.get_wavebin(nbins=nbins,waveBinNum=oneBin)
-                mapDict = self.find_mxap_with_clipping(modelDict1)
+                mapDict = self.find_mxap_with_clipping(modelDict1,
+                                                       extraDescrip=extraDescrip)
                 depth_list.append(mapDict['map_soln']['depth'])
                 resultDict = mapDict
             
@@ -1542,7 +1559,8 @@ class exo_model(object):
             modelDict = self.build_model()
     
         if 'map_soln' not in modelDict:
-            resultDict = self.find_mxap_with_clipping(modelDict)
+            resultDict = self.find_mxap_with_clipping(modelDict,
+                                                      extraDescrip=extraDescrip)
         else:
             resultDict = modelDict
     
@@ -1935,13 +1953,14 @@ class exo_model(object):
         fig.savefig(outFile)
         plt.close(fig)
 
-    def run_all_broadband(self):
+    def run_all_broadband(self,recalculate=False):
         modelDict = self.build_model()
-        mapDict = self.find_mxap_with_clipping(modelDict)
+        mapDict = self.find_mxap_with_clipping(modelDict,
+                                               recalculate=recalculate)
         self.save_mxap_lc(mapDict)
         for showDetrended in [True,False]:
             self.plot_test_point(mapDict,showDetrended=showDetrended)
-        postDict = self.find_posterior(mapDict)
+        postDict = self.find_posterior(mapDict,recalculate=recalculate)
         self.print_es_summary(postDict)
         self.corner_plot(postDict,compact=False)
         
