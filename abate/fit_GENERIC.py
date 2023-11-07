@@ -19,6 +19,7 @@ def do_fitting():
                                              starry_ld_degree=6,
                                              ecc=(0.1074,0.01),
                                              omega=(94.4,0.5),
+                                             trendType='',
                                              recalculateTshirt=True,
                                              pipeType='phot',ld_law='multiterm')
         except FileNotFoundError as error:
