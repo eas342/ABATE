@@ -72,7 +72,7 @@ class exo_model(object):
                  oot_start=0,oot_end=100,
                  trendType='poly',
                  refpixDatFile='',
-                 poly_ord=None,
+                 poly_ord=1,
                  legacy_polynomial=False,
                  expStart=None,
                  mask=None,
