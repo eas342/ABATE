@@ -2247,6 +2247,65 @@ def compare_overlap(sp1,sp2,waveRange=overlapWaveRangeToCheck):
     diff_err = np.sqrt(err1**2 + err2**2)
     return diff, diff_err
 
+def get_irac_bp(iracFilter='3.6'):
+    if iracFilter == '3.6':
+        bp = ascii.read(os.path.join(os.environ['TEL_DATA'],'irac/irac_36_ang.txt'))
+    elif iracFilter == '4.5':
+        bp = ascii.read(os.path.join(os.environ['TEL_DATA'],'irac/irac_45_ang.txt'))
+    else:
+        msg = "IRAC {} either isn't implemented or does not exist".format(iracFilter)
+        raise NotImplementedError(msg)
+
+    bp_interp = interp1d(bp['col1']/1e4,bp['col2'],bounds_error=False,
+                         fill_value=0.0)
+    return bp_interp
+
+def calc_syn_irac(wave,depth,depth_err,iracFilter):
+    """ 
+    Calculate the synthetic photometry from IRAC
+    """
+    bp = get_irac_bp(iracFilter=iracFilter)
+    syn_depth, syn_depth_err = calc_syn_phot(wave,depth,depth_err,bp)
+    return syn_depth, syn_depth_err
+
+def calc_syn_phot(wave,depth,depth_err,bp):
+    bp_i = bp(wave)
+    normVal = np.nansum(bp_i)
+    syn_depth = np.nansum(bp_i * depth) / normVal
+    syn_depth_err = np.sqrt(np.nansum(bp_i**2 * depth_err**2)) / normVal
+    return syn_depth, syn_depth_err
+
+def syn_phot_table(specList):
+    """
+    Takes a list of spectra and calculates IRAC photometry
+    """
+    filterList = []
+    synDepthList = []
+    synDepthErrList = []
+    for oneSpec in specList:
+        minWave = np.min(oneSpec['wave mid'])
+        if minWave < 3.5:
+            iracFilterSynth = '3.6'
+        elif minWave < 5.0:
+            iracFilterSynth = '4.5'
+        else:
+            msg = "IRAC {} either isn't implemented or does not exist".format(iracFilterSynth)
+            raise NotImplementedError(msg)
+
+        filterList.append(iracFilterSynth)
+        res = calc_syn_irac(oneSpec['wave mid'],
+                            oneSpec['depth'],
+                            oneSpec['depth err'],
+                            iracFilter=iracFilterSynth)
+        synDepthList.append(res[0])
+        synDepthErrList.append(res[1])
+    t_syn = Table()
+    t_syn['Filter'] = filterList
+    t_syn['Depth'] = np.round(np.array(synDepthList) * 1e6,1)
+    t_syn['Depth err'] = np.round(np.array(synDepthErrList) * 1e6,1)
+    return t_syn
+
+
 
 if __name__ == "__main__":
     freeze_support()
