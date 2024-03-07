@@ -1494,15 +1494,24 @@ class exo_model(object):
                 ax.legend()
 
         resid = modelDict['y'] - light_curve
+        if self.nbins_resid is None:
+            resid_alpha = 1.0
+        else:
+            resid_alpha = 0
+        
         ax2.errorbar(modelDict['x'][dataMask],resid[dataMask],
-                     yerr=modelDict['yerr'][dataMask],fmt='.',alpha=0.7)
+                     yerr=modelDict['yerr'][dataMask],fmt='.',
+                     alpha=resid_alpha)
         
-        x_bin, y_bin, y_bin_err = phot_pipeline.do_binning(modelDict['x'][dataMask],
-                                                           resid[dataMask],nBin=self.nbins_resid)
-        if self.equalize_bin_err == True:
-            y_bin_err = np.ones_like(y_bin_err) * np.median(y_bin_err)
-        
-        plt.errorbar(x_bin,y_bin,fmt='o')
+        if self.nbins_resid is None:
+            pass
+        else:
+            x_bin, y_bin, y_bin_err = phot_pipeline.do_binning(modelDict['x'][dataMask],
+                                                            resid[dataMask],nBin=self.nbins_resid)
+            if self.equalize_bin_err == True:
+                y_bin_err = np.ones_like(y_bin_err) * np.median(y_bin_err)
+            
+            plt.errorbar(x_bin,y_bin,fmt='o')
         
         ax.set_ylabel("Flux (ppt)")
         ax.set_ylim(yLim[0],yLim[1])
