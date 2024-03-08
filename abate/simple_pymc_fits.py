@@ -93,6 +93,7 @@ class exo_model(object):
                  phaseCurveFormulation='standard',
                  correctedBinCenters=False,
                  customData=None,
+                 batchInd=0,
                  ):
         #paramPath = 'parameters/spec_params/jwst/sim_mirage_007_grismc/spec_mirage_007_p015_full_emp_cov_weights_nchdas_mmm.yaml'
         #paramPath = 'parameters/spec_params/jwst/sim_mirage_007_grismc/spec_mirage_007_p016_full_emp_cov_weights_ncdhas_ppm.yaml'
@@ -167,7 +168,12 @@ class exo_model(object):
             t1[t1.colnames[1]] = t1[t1.colnames[1]] / normVal
             t2[t2.colnames[1]] = t2[t2.colnames[1]] / normVal
         else:
-            self.spec = spec_pipeline.spec(self.paramFile)
+            if pipeType == 'batchSpec':
+                bspec = spec_pipeline.batch_spec(self.paramFile)
+                self.batchInd = batchInd
+                self.spec = bspec.return_spec_obj(self.batchInd)
+            else:
+                self.spec = spec_pipeline.spec(self.paramFile)
             t1, t2 = self.spec.get_wavebin_series(nbins=1,recalculate=recalculateTshirt)
             timeKey = 'Time'
         
@@ -237,7 +243,7 @@ class exo_model(object):
         self.equalize_bin_err = equalize_bin_err
 
         self.broadband_fit_file = 'fit_results/broadband_fit_{}.csv'.format(self.descrip)
-        if pipeType == 'spec':
+        if (pipeType == 'spec') | (pipeType == 'batchSpec'):
             self.specFileName = os.path.join('fit_results',self.descrip,'spectrum_{}.csv'.format(self.descrip))
         else:
             self.specFileName = None
@@ -260,7 +266,7 @@ class exo_model(object):
         reDo: bool
             Re-do the telemetry vector?
         """
-        if self.pipeType == 'spec':
+        if (self.pipeType == 'spec') | (self.pipeType == 'batchSpec'):
             fileDescrip = self.spec.dataFileDescrip
         elif self.pipeType == 'phot':
             fileDescrip = self.phot.dataFileDescrip
@@ -269,7 +275,8 @@ class exo_model(object):
         
         pathName = gather_telemetry.telemfile_path(fileDescrip)
         if (os.path.exists(pathName) == False) | (reDo==True):
-            gather_telemetry.get_telem(self.paramPath,tserType=self.pipeType)
+            gather_telemetry.get_telem(self.paramPath,tserType=self.pipeType,
+                                       batchInd=self.batchInd)
         dat = ascii.read(pathName)
         
         if self.pipeType == 'phot':

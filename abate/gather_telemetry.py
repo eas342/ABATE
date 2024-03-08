@@ -33,10 +33,20 @@ def telemfile_path(descrip):
     return os.path.join('detrending_vectors',telem_fileName)
 
 
-def get_telem(tshirt_path,tserType='spec',smoothingOrder=5):
+def get_telem(tshirt_path,tserType='spec',smoothingOrder=5,
+              batchInd=0):
+    """
+    Gather telemetry for a tshirt object
+    tserType = 'spec', 'batchSpec' or 'phot'
+    batchInd use only if it is a batch file to specify which observations/config
+    """
 
-    if tserType == 'spec':
-        tshirt_obj = spec_pipeline.spec(tshirt_path)
+    if (tserType == 'spec') | (tserType == 'batchSpec'):
+        if tserType == 'batchSpec':
+            bspec = spec_pipeline.batch_spec(tshirt_path)
+            tshirt_obj = bspec.return_spec_obj(batchInd)
+        else:
+            tshirt_obj = spec_pipeline.spec(tshirt_path)
         t1, t2 = tshirt_obj.get_wavebin_series(nbins=1)
         x = t1['Time']
         mnemonic = 'IGDP_NRC_A_T_LWFPAH1'

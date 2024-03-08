@@ -110,6 +110,7 @@ pipeType
 This variable is a string, set to either 'phot' for photometry or 'spec' for spectroscopy.
 Or, you can set the input X/Y manually to :code:`customPhot` for custom photometry and 
 specify the data in :code:`customData`
+If there is a batch file of spectroscopy that works on many observations or configurations, set pipeType to 'batchSpec' and choose which number/index of the batch to select with 'batchInd'
 
 ld_law
 ~~~~~~~
@@ -219,6 +220,10 @@ In this case, :code:`customData` should be in the format of a dictionary, with t
 :code:`yerr` : the error in flux,  which will be automatically re-normalized
 :code:`srcname` : 
 If :code:`customData` is :code:`None`, it will be ignored.
+
+batchInd
+~~~~~~~~~~~~
+If pipeType is 'batchSpec', then use this index to set which of many different reductions/observations is used.
 
 TShirt
 ------
