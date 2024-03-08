@@ -1504,7 +1504,7 @@ class exo_model(object):
         if self.nbins_resid is None:
             resid_alpha = 1.0
         else:
-            resid_alpha = 0
+            resid_alpha = 0.7
         
         ax2.errorbar(modelDict['x'][dataMask],resid[dataMask],
                      yerr=modelDict['yerr'][dataMask],fmt='.',
