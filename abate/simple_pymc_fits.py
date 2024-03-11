@@ -1537,7 +1537,7 @@ class exo_model(object):
         for suffix in ['.pdf','.png']:
             outName='lc_plot_{}{}'.format(combined_descrip,suffix)
             fig.savefig(os.path.join(lc_path,outName),
-                        dpi=200,
+                        dpi=200,facecolor='white',
                         bbox_inches='tight')
         
     
