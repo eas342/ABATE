@@ -1818,7 +1818,20 @@ class exo_model(object):
     #
     #     return mult_coeff
     
-    
+    def get_one_wave_result_dict(self,oneBin,nbins=None):
+        if nbins == None:
+            nbins = self.nbins
+
+        tnoise = self.spec.print_noise_wavebin(nbins=nbins,recalculate=False)
+        waveList_midpx = tnoise['Wave (mid px)']
+
+        modelDict1 = self.build_model_spec(waveBinNum=oneBin,nbins=nbins,
+                                                forceRecalculate=False)
+        modelDict1['map_soln'] = 'placeholder'
+        waveName = "{}_nbins_{}".format(waveList_midpx[oneBin],nbins)
+        resultDict = self.find_posterior(modelDict1,extraDescrip="_{}".format(waveName))
+        return resultDict
+
     def corner_plot(self,resultDict,compact=True,re_param_u=True,
                     truths=None,range=None):
         if re_param_u == True:
