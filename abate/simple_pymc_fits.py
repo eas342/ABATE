@@ -1375,8 +1375,10 @@ class exo_model(object):
         make_sure_of_path('plots/spectra_pdf')
         make_sure_of_path('plots/spectra_png')
         
-        fig.savefig('plots/spectra_pdf/spectrum_simple_{}.pdf'.format(self.descrip),bbox_inches='tight')
-        fig.savefig('plots/spectra_png/spectrum_simple_{}.png'.format(self.descrip),bbox_inches='tight',dpi=250)
+        fig.savefig('plots/spectra_pdf/spectrum_simple_{}.pdf'.format(self.descrip),
+                    bbox_inches='tight',facecolor='white')
+        fig.savefig('plots/spectra_png/spectrum_simple_{}.png'.format(self.descrip),
+                    bbox_inches='tight',facecolor='white',dpi=250)
         if closeFig == True:
             plt.close(fig)
 
@@ -1397,7 +1399,7 @@ class exo_model(object):
         specPath = 'plots/param_spec_png/{}_spec_{}.png'.format(param,self.descrip)
         print("Saving file to {}".format(specPath))
         fig.savefig(specPath,
-                    bbox_inches='tight',dpi=150)
+                    bbox_inches='tight',dpi=150,facecolor='white')
 
 
     def plot_test_point(self,modelDict,extraDescrip='',yLim=[None,None],
@@ -1818,7 +1820,7 @@ class exo_model(object):
     #
     #     return mult_coeff
     
-    def get_one_wave_result_dict(self,oneBin,nbins=None):
+    def get_one_wave_result_dict(oneBin,nbins=None):
         if nbins == None:
             nbins = self.nbins
 
