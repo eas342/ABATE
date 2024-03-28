@@ -9,7 +9,8 @@ Automatic Bayesian Atmospheric Tool for Exoplanets (ABATE)
    :caption: Contents:
    
    installation
-   fitting_lightcurves
+   how_to_fit_lightcurves
+   parameter_description
    error_fixes
    notebooks/hatp14_limb_darkening.ipynb
 
