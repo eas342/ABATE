@@ -1075,9 +1075,11 @@ class exo_model(object):
         
         return resultDict
     
-    def update_mask(self,mxapDict):
+    def get_lc_final(self,mxapDict):
         """
-        Update the mask to exclude outliers. Use the MAP solution
+        Get the final lightcurve from a mxapDict
+
+        This is needed when piecing together many datasets
         """
         if self.nDataSets > 1:
             lc_final = np.zeros(len(mxapDict['x']))
@@ -1090,6 +1092,14 @@ class exo_model(object):
                 lc_final[pts] = map_soln[lcKey]
         else:
             lc_final = mxapDict['map_soln']['lc_final']
+        return lc_final
+
+    def update_mask(self,mxapDict):
+        """
+        Update the mask to exclude outliers. Use the MAP solution
+        """
+
+        lc_final = self.get_lc_final(mxapDict)
         resid = mxapDict['y'] - lc_final
         newMask = (np.abs(resid) < self.sigReject * mxapDict['yerr'])
         ## make sure it doesn't add in any new points that were masked out at the start 
@@ -1779,7 +1789,8 @@ class exo_model(object):
             ## save the likelihood info
             mask1 = resultDict['mask']
             pts = np.sum(mask1)
-            resid = (resultDict['y'][mask1] - resultDict['map_soln']['lc_final'][mask1]) 
+            lc_final = self.get_lc_final(resultDict)
+            resid = (resultDict['y'][mask1] - lc_final[mask1]) 
             chisq_full = np.sum(resid**2 / resultDict['yerr'][mask1]**2)
             nparams = len(resultDict['model'].basic_RVs)
             dof = pts - nparams
