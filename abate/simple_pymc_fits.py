@@ -366,39 +366,11 @@ class exo_model(object):
             else:
                 fitLimbDarkParamsOverride = False
 
-            for dataSetInd in np.arange(self.nDataSets):
-                if self.nDataSets == 1:
-                    modelName = None
-                else:
-                    modelName = self.dataSetsList[dataSetInd]
-
-                    with pm.Model(name=modelName,model=model):
-                        if (self.fixLDu1 == True) & (specInfo is not None):
-                            u_star = 'special'
-                        elif (self.u_lit == None) | (fitLimbDarkParamsOverride == True):
-                            if (self.eclipseGeometry == 'Transit') | (self.eclipseGeometry == 'PhaseCurve'):
-                                if self.ld_law == 'quadratic':
-                                    u_star = xo.QuadLimbDark("u_star",testval=self.ld_start)
-                                else:
-                                    # u_star = pm.Lognormal("u_star",mu=np.log(0.1), sigma=0.5,
-                #                                             shape=(default_starry_ld_deg,))
-                                    #ld_start[0] = 0.1
-                                    ld_start = self.ld_start
-                                    u_star = pm.Normal("u_star",mu=ld_start,testval=ld_start,
-                                                    sigma=2.0,
-                                                    shape=(self.starry_ld_degree,))
-                            else:
-                                u_star = 0.0
-                        elif (self.u_lit == 'interpSpecOnly'):
-                            u_star = []
-                            for u_lit_ind in range(self.u_lit_degree):
-                                thisWave = specInfo['waveMid']
-                                u_star.append(self.interpFuncs[u_lit_ind](thisWave))
-                        else:
-                            u_star = self.u_lit
-        
+            
             if specInfo == None:
-                ## ie broadband lightcurve
+                ## BROADBAND model
+                ## Use broadband parameters
+                ##--------------------------
 
                 if self.inspect_physOrb_params(self.a_lit) == 1:
                     a = self.a_lit
@@ -428,18 +400,9 @@ class exo_model(object):
                     t0 = pm.Normal("t0", mu=self.t0_lit[0], sd=self.t0_lit[1])
                 #t0 = t0_lit[0]
                 
-                if (self.eclipseGeometry == 'Eclipse') | (self.eclipseGeometry == 'PhaseCurve'):
-                    e_depth = pm.Normal("e_depth",mu=self.e_depth_guess,sigma=2e-3)
-                    if self.ror_prior is None:
-                        raise Exception("Must have an ror prior for eclipse")
-                    ror = pm.TruncatedNormal("ror",mu=self.ror_prior[0],
-                            testval=self.ror_prior[0],
-                            sigma=self.ror_prior[1],
-                            lower=0.0)
-                else:
-                    ror = pm.Lognormal("ror", mu=np.log(0.0822), sigma=0.5)
+
+
                 
-                #ror = pm.Deterministic("ror", tt.pow(10,logr_pl) / R_star[0])#r_star)
                 #b = xo.distributions.ImpactParameter("b", ror=ror)
                 ecc_from_broadband = False
                 
@@ -453,6 +416,10 @@ class exo_model(object):
 
 
             else:
+                ### SPECTROSCOPIC Model
+                ## Use broadband parameters
+                ##--------------------------
+
                 broadband = specInfo['broadband']
                 if self.inspect_physOrb_params(self.a_lit) == 1:
                     a = self.a_lit
@@ -481,29 +448,8 @@ class exo_model(object):
                     t0 = pm.Normal("t0",mu=t0_broadband,sd=self.t0_lit[1])
                 else:
                     t0 = t0_broadband
-                # t0 = pm.Normal("t0", mu=get_from_t(broadband,'t0','mean'),
-                #                  sigma=get_from_t(broadband,'t0','std'))
-                #t0 = t0_lit[0]
-                
-                for dataSetInd in np.arange(self.nDataSets):
-                    if self.nDataSets == 1:
-                        modelName = None
-                    else:
-                        modelName = self.dataSetsList[dataSetInd]
 
-                        with pm.Model(name=modelName,model=model):
-                            
-                            if (self.eclipseGeometry == 'Eclipse') | (self.eclipseGeometry == 'PhaseCurve'):
-                                e_depth = pm.Normal("e_depth",mu=1e-3,sigma=2e-3)
-                                if self.ror_prior is None:
-                                    raise Exception("Must have an ror prior for eclipse")
-                                ror = pm.TruncatedNormal("ror",mu=self.ror_prior[0],
-                                                        sigma=self.ror_prior[1],
-                                                        testval=self.ror_prior[0],
-                                                        lower=0.0)
-                            else:
-                                mean_r = get_from_t(broadband,'ror','mean')
-                                ror = pm.Lognormal("ror", mu=np.log(mean_r), sigma=0.3)
+                
                 
                 if 'ecc' in broadband['var name']:
                     ecc_from_broadband = True
@@ -515,16 +461,7 @@ class exo_model(object):
                     ecc_from_broadband = False
                     ecc_from_broadband_val = (np.nan,np.nan)
                 
-                if self.fixLDu1 == True:
-                    assert self.ld_law=='quadratic'
-                    ## Make sure u1 is fixed
-                    u1_use = get_from_t(broadband,'u_star__0','mean')
-                    ## Kipping et al. 2013 equation 8
-                    u2_use = pm.Uniform('u_star__1',lower=-0.5 * u1_use,upper=1. - u1_use)
-                    
-                    #u1 = pm.Deterministic('u_star__0',u1_use)
-                    
-                    u_star = [u1_use,u2_use]
+
 
                 
                 x_in, y_in, yerr_in = specInfo['x'], specInfo['y'], specInfo['yerr']
@@ -682,23 +619,84 @@ class exo_model(object):
                  
                 if self.nDataSets == 1:
                     modelName = None
+                    modelNameTxt = ''
                     x_use = x
                     y_use = y
                     yerr_use = yerr
                     mask_use = mask
                 else:
                     modelName = self.dataSetsList[dataSetInd]
-
+                    modelNameTxt = '{}_'.format(modelName)
                     pts = self.dataSets == modelName
                     x_use = x[pts]
                     y_use = y[pts]
                     yerr_use = yerr[pts]
                     mask_use = mask[pts]
                     
-
+                    #submodel for each dataset
                     with pm.Model(name=modelName,model=model):
+                        ## mean for this dataset (or else the whole lightcurve for 1 dataset)
                         mean = pm.Normal("mean", mu=1000., sd=10,testval=1000.)
-                        ## Submodel for each daataset
+
+
+                        ####
+                        #### Set priors on the limb darkening
+                        ####
+                        if (self.fixLDu1 == True) & (specInfo is not None):
+                            assert self.ld_law=='quadratic'
+                            ## Make sure u1 is fixed
+                            u1_use = get_from_t(broadband,'u_star__0','mean')
+                            ## Kipping et al. 2013 equation 8
+                            u2_use = pm.Uniform('u_star__1',lower=-0.5 * u1_use,upper=1. - u1_use)
+                            
+                            #u1 = pm.Deterministic('u_star__0',u1_use)
+                            
+                            u_star = [u1_use,u2_use]
+                        elif (self.u_lit == None) | (fitLimbDarkParamsOverride == True):
+                            if (self.eclipseGeometry == 'Transit') | (self.eclipseGeometry == 'PhaseCurve'):
+                                if self.ld_law == 'quadratic':
+                                    u_star = xo.QuadLimbDark("u_star",testval=self.ld_start)
+                                else:
+                                    # u_star = pm.Lognormal("u_star",mu=np.log(0.1), sigma=0.5,
+                #                                             shape=(default_starry_ld_deg,))
+                                    #ld_start[0] = 0.1
+                                    ld_start = self.ld_start
+                                    u_star = pm.Normal("u_star",mu=ld_start,testval=ld_start,
+                                                    sigma=2.0,
+                                                    shape=(self.starry_ld_degree,))
+                            else:
+                                u_star = 0.0
+                        elif (self.u_lit == 'interpSpecOnly'):
+                            u_star = []
+                            for u_lit_ind in range(self.u_lit_degree):
+                                thisWave = specInfo['waveMid']
+                                u_star.append(self.interpFuncs[u_lit_ind](thisWave))
+                        else:
+                            u_star = self.u_lit
+
+                        ###
+                        ### Priors on the planet radius
+                        ###
+
+                        if (self.eclipseGeometry == 'Eclipse') | (self.eclipseGeometry == 'PhaseCurve'):
+                            e_depth = pm.Normal("e_depth",mu=self.e_depth_guess,sigma=2e-3)
+                            if self.ror_prior is None:
+                                raise Exception("Must have an ror prior for eclipse")
+                            ror = pm.TruncatedNormal("ror",mu=self.ror_prior[0],
+                                    testval=self.ror_prior[0],
+                                    sigma=self.ror_prior[1],
+                                    lower=0.0)
+                        else:
+                            if specInfo is None:
+                                ### Broadband case
+                                ror = pm.Lognormal("ror", mu=np.log(0.0822), sigma=0.5)
+                            else:
+                                ### Spectroscopic case
+                                ### Faster to start near the broadband value
+                                mean_r = get_from_t(broadband,'ror','mean')
+                                ror = pm.Lognormal("ror", mu=np.log(mean_r), sigma=0.3)
+
+                        
                         if self.fitSigma == 'fit':
                             sigma_lc = pm.Lognormal("sigma_lc", mu=np.log(np.median(yerr_use)), sigma=0.5)
                         elif self.fitSigma == 'oot':
@@ -712,6 +710,7 @@ class exo_model(object):
                             depth = pm.Deterministic('depth',tt.pow(ror,2))
 
                         if (self.ld_law == 'quadratic') & (self.eclipseGeometry == "Transit"):
+
                             # Orbit model
                             orbit = xo.orbits.KeplerianOrbit(
                                 period=period,
@@ -721,7 +720,7 @@ class exo_model(object):
                                 ecc=ecc,
                                 omega=omega * np.pi/180.,
                             )
-                    
+                            
                             light_curves_obj = xo.LimbDarkLightCurve(u_star)
                             light_curves1 = light_curves_obj.get_light_curve(orbit=orbit, r=ror,
                                                                                 t=x_use, texp=self.texp)
@@ -930,6 +929,8 @@ class exo_model(object):
                         # ## the correlations are on 0.02 day timescales
                         # rho_gp = pm.Lognormal("rho_gp", mu=np.log(1e-2), sigma=0.5)
                         #
+                        
+                        
                         if 'gp' in self.trendType:
                         ## assume a similar order of magnitude as the errorbars
                             sigma_gp = pm.Lognormal("sigma_gp", mu=np.log(np.median(yerr_use)), sigma=0.5,
@@ -939,21 +940,27 @@ class exo_model(object):
                                                 testval=rho_gp_guess)
                             ## non-periodic stochastically-driven, damped harmonic oscillator
                             kernel = terms.SHOTerm(sigma=sigma_gp, rho=rho_gp, Q=0.25)
+                    
+                    if 'gp' in self.trendType:
+                        ## trying Matern 3/2
+                        #kernel = terms.Matern32Term(sigma=sigma_gp,rho=rho_gp)           
+                        gp = GaussianProcess(kernel, t=x_use[mask_use], yerr=sigma_lc,quiet=True)
 
-                            ## trying Matern 3/2
-                            #kernel = terms.Matern32Term(sigma=sigma_gp,rho=rho_gp)           
-                            gp = GaussianProcess(kernel, t=x_use[mask_use], yerr=sigma_lc,quiet=True)
+                        light_curves_no_GP = pm.Deterministic("{}lc_no_GP".format(modelNameTxt),
+                                                              light_curves_semifinal)
+                        resid = y_use[mask_use] - light_curves_no_GP[mask_use]
 
-                            light_curves_no_GP = pm.Deterministic("lc_no_GP",light_curves_semifinal)
-                            resid = y_use[mask_use] - light_curves_no_GP[mask_use]
+                        gp.marginal("{}gp".format(modelNameTxt), observed=resid)
+                        
+                        light_curves_final = pm.Deterministic("{}lc_final".format(modelNameTxt),
+                                                              light_curves_no_GP  + gp.predict(resid,t=x_use))
+                    else:
+                        light_curves_final = pm.Deterministic("{}lc_final".format(modelNameTxt),
+                                                              light_curves_semifinal)
+                        pm.Normal("{}obs".format(modelNameTxt), 
+                                  mu=light_curves_final[mask_use], sd=sigma_lc, 
+                                  observed=y_use[mask_use])
 
-                            gp.marginal("gp", observed=resid)
-                            
-                            light_curves_final = pm.Deterministic("lc_final",light_curves_no_GP  + gp.predict(resid,t=x_use))
-                        else:
-                            light_curves_final = pm.Deterministic("lc_final",light_curves_semifinal)
-                            pm.Normal("obs", mu=light_curves_final[mask_use], sd=sigma_lc, observed=y_use[mask_use])
-    
         resultDict = {}
         resultDict['model'] = model
         resultDict['x'] = x
