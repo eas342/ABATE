@@ -67,6 +67,8 @@ class exo_model(object):
                  u_lit_file=None,
                  cores=2,nchains=2,
                  pymc3_init="adapt_full",
+                 pymc3_target_accept=0.9,
+                 pymc3_tune=3000,                 
                  fitSigma=None,
                  nbins=20,
                  oot_start=0,oot_end=100,
@@ -119,6 +121,8 @@ class exo_model(object):
         self.cores = cores
         self.nchains = nchains
         self.pymc3_init = pymc3_init
+        self.pymc3_target_accept = pymc3_target_accept
+        self.pymc3_tune = pymc3_tune
         self.e_depth_guess = e_depth_guess
         
         self.eclipseGeometry = eclipseGeometry
@@ -1046,7 +1050,6 @@ class exo_model(object):
             # incl = model.incl
             # u_star = model.u_star
             # mean = model.mean
-            
             if self.fitSigma == 'fit':
                 allvars = model.vars
                 initial_vars = []
@@ -1656,13 +1659,13 @@ class exo_model(object):
             
             with model0: 
                 trace = pmx.sample( 
-                    tune=3000, 
-                    draws=3000, 
+                    tune=self.pymc3_tune, 
+                    draws=3000,
                     start=resultDict['map_soln'], 
                     cores=self.cores, 
                     chains=self.nchains, 
                     init=self.pymc3_init, 
-                    target_accept=0.9, 
+                    target_accept=self.pymc3_target_accept, 
                 )
             pm.save_trace(trace, directory =outDir, overwrite = True)
         else:
@@ -1685,11 +1688,11 @@ class exo_model(object):
         ## sometimes the pandas dataframe has multiple values for one
         ## variable. For example, u_star goes to u_star__0 and u_star__1
         if broadband == True:
-            varnames = ['mean','a','incl','t0','ror','depth','period']
-            varList = ['mean','a','incl','t0','ror','depth','period']
+            varnames = ['a','incl','t0','ror','depth','period']
+            varList = [ 'a','incl','t0','ror','depth','period']
 
         else:
-            varnames = ['mean','a','incl','t0','ror','depth']
+            varnames = ['a','incl','t0','ror','depth']
             varList = deepcopy(varnames)
         
         if self.eclipseGeometry == 'PhaseCurve':
@@ -1700,33 +1703,14 @@ class exo_model(object):
             for ind,oneVar in enumerate(additional_varNames):
                 varnames.append(oneVar)
                 varList.append(additional_varList[ind])
-
-        if self.u_lit == None:
-            varnames.append('u_star')
-            varList.append('u_star__0')
-            varnames.append('u_star')
-            varList.append('u_star__1')
-
-            if (self.fixLDu1 == True) & (broadband==False):
-                ## I named the variable here manually
-                varnames.append('u_star__1')
-                varList.append('u_star__1')
         
         if (self.ecc != 'zero') & (broadband == True):
             varnames.append('ecc')
             varnames.append('omega')
             varList.append('ecc')
             varList.append('omega')
-        
-        if (self.fitSigma == 'fit'):
-            varnames.append('sigma_lc')
-            varList.append('sigma_lc')
-        
-        
-        if 'poly' in self.trendType:
-            for oneCoeff in np.arange(self.poly_ord):
-                varnames.append('poly_coeff')
-                varList.append('poly_coeff__{}'.format(oneCoeff))
+
+ 
 
         if 'fpah' in self.trendType:
             varnames.append('fpahCoeff')
@@ -1743,14 +1727,51 @@ class exo_model(object):
                 varnames.append('stepOffsets')
                 varList.append('stepOffsets__{}'.format(oneStep))
 
-        if (self.expStart == True):
-            varnames.append('exp_tau')
-            varnames.append('exp_amp')
-            varList.append('exp_tau')
-            varList.append('exp_amp')
-        elif (self.expStart == 'double'):
-            varnames.extend(['exp_tau1','exp_tau2','exp_amp1','exp_amp2'])
-            varList.extend(['exp_tau1,','exp_tau2','exp_amp1','exp_amp2'])
+        for dataSetInd in np.arange(self.nDataSets):
+            if self.nDataSets == 1:
+                dataSetName = ''
+            else:
+                dataSetName = '{}_'.format(self.dataSetsList[dataSetInd])
+            
+            varnames.append('{}mean'.format(dataSetName))
+            varList.append('{}mean'.format(dataSetName))
+                   
+        
+            if 'poly' in self.trendType:
+                for oneCoeff in np.arange(self.poly_ord):
+                    varnames.append('{}poly_coeff'.format(dataSetName))
+                    varList.append('{}poly_coeff__{}'.format(dataSetName,oneCoeff))
+
+
+            if (self.fitSigma == 'fit'):
+                varnames.append('{}sigma_lc'.format(dataSetName))
+                varList.append('{}sigma_lc'.format(dataSetName))
+
+            if self.u_lit == None:
+                varnames.append('{}u_star'.format(dataSetName))
+                varList.append('{}u_star__0'.format(dataSetName))
+                varnames.append('{}u_star'.format(dataSetName))
+                varList.append('{}u_star__1'.format(dataSetName))
+
+                if (self.fixLDu1 == True) & (broadband==False):
+                    ## I named the variable here manually
+                    varnames.append('{}u_star__1'.format(dataSetName))
+                    varList.append('{}u_star__1'.format(dataSetName))
+            
+            if (self.expStart == True):
+                varnames.append('{}exp_tau'.format(dataSetName))
+                varnames.append('{}exp_amp'.format(dataSetName))
+                varList.append('{}exp_tau'.format(dataSetName))
+                varList.append('{}exp_amp'.format(dataSetName))
+            elif (self.expStart == 'double'):
+                varnames.extend(['{}exp_tau1'.format(dataSetName),
+                                 '{}exp_tau2'.format(dataSetName),
+                                 '{}exp_amp1'.format(dataSetName),
+                                 '{}exp_amp2'.format(dataSetName)])
+                varList.extend(['{}exp_tau1'.format(dataSetName),
+                                '{}exp_tau2'.format(dataSetName),
+                                '{}exp_amp1'.format(dataSetName),
+                                '{}exp_amp2'.format(dataSetName)])
         
         ## check if variable is in posterior and only keep the ones that are
         available_vars = []
