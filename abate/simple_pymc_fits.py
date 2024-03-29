@@ -1515,6 +1515,7 @@ class exo_model(object):
             y_use = modelDict['y']
             yerr_use = modelDict['yerr']
             dataMask = modelDict['mask']
+            dataSetName = ''
         else:
             dataSetName = self.dataSetsList[dataSetInd]
             lcKey = '{}_lc_final'.format(dataSetName)
