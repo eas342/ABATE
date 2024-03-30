@@ -615,10 +615,11 @@ class exo_model(object):
                     omega = pm.Normal("omega",mu=self.omega[0],sigma=self.omega[1],
                                       testval=self.omega[0])
             # xo.eccentricity.kipping13("ecc_prior", fixed=True, observed=ecc)
-        
+
             # ecc = 0.0
             # omega = np.pi/2.0
             # xo.eccentricity.kipping13("ecc_prior", fixed=True, observed=ecc)
+            
             for dataSetInd in np.arange(self.nDataSets):
                  
                 if self.nDataSets == 1:
@@ -636,334 +637,334 @@ class exo_model(object):
                     y_use = y[pts]
                     yerr_use = yerr[pts]
                     mask_use = mask[pts]
+                
+                #submodel for each dataset
+                with pm.Model(name=modelName,model=model):
+                    ## mean for this dataset (or else the whole lightcurve for 1 dataset)
+                    mean = pm.Normal("mean", mu=1000., sd=10,testval=1000.)
+
+
+                    ####
+                    #### Set priors on the limb darkening
+                    ####
+                    if (self.fixLDu1 == True) & (specInfo is not None):
+                        assert self.ld_law=='quadratic'
+                        ## Make sure u1 is fixed
+                        u1_use = get_from_t(broadband,'u_star__0','mean')
+                        ## Kipping et al. 2013 equation 8
+                        u2_use = pm.Uniform('u_star__1',lower=-0.5 * u1_use,upper=1. - u1_use)
+                        
+                        #u1 = pm.Deterministic('u_star__0',u1_use)
+                        
+                        u_star = [u1_use,u2_use]
+                    elif (self.u_lit == None) | (fitLimbDarkParamsOverride == True):
+                        if (self.eclipseGeometry == 'Transit') | (self.eclipseGeometry == 'PhaseCurve'):
+                            if self.ld_law == 'quadratic':
+                                u_star = xo.QuadLimbDark("u_star",testval=self.ld_start)
+                            else:
+                                # u_star = pm.Lognormal("u_star",mu=np.log(0.1), sigma=0.5,
+            #                                             shape=(default_starry_ld_deg,))
+                                #ld_start[0] = 0.1
+                                ld_start = self.ld_start
+                                u_star = pm.Normal("u_star",mu=ld_start,testval=ld_start,
+                                                sigma=2.0,
+                                                shape=(self.starry_ld_degree,))
+                        else:
+                            u_star = 0.0
+                    elif (self.u_lit == 'interpSpecOnly'):
+                        u_star = []
+                        for u_lit_ind in range(self.u_lit_degree):
+                            thisWave = specInfo['waveMid']
+                            u_star.append(self.interpFuncs[u_lit_ind](thisWave))
+                    else:
+                        u_star = self.u_lit
+
+                    ###
+                    ### Priors on the planet radius
+                    ###
+
+                    if (self.eclipseGeometry == 'Eclipse') | (self.eclipseGeometry == 'PhaseCurve'):
+                        e_depth = pm.Normal("e_depth",mu=self.e_depth_guess,sigma=2e-3)
+                        if self.ror_prior is None:
+                            raise Exception("Must have an ror prior for eclipse")
+                        ror = pm.TruncatedNormal("ror",mu=self.ror_prior[0],
+                                testval=self.ror_prior[0],
+                                sigma=self.ror_prior[1],
+                                lower=0.0)
+                    else:
+                        if specInfo is None:
+                            ### Broadband case
+                            ror = pm.Lognormal("ror", mu=np.log(0.0822), sigma=0.5)
+                        else:
+                            ### Spectroscopic case
+                            ### Faster to start near the broadband value
+                            mean_r = get_from_t(broadband,'ror','mean')
+                            ror = pm.Lognormal("ror", mu=np.log(mean_r), sigma=0.3)
+
                     
-                    #submodel for each dataset
-                    with pm.Model(name=modelName,model=model):
-                        ## mean for this dataset (or else the whole lightcurve for 1 dataset)
-                        mean = pm.Normal("mean", mu=1000., sd=10,testval=1000.)
+                    if self.fitSigma == 'fit':
+                        sigma_lc = pm.Lognormal("sigma_lc", mu=np.log(np.median(yerr_use)), sigma=0.5)
+                    elif self.fitSigma == 'oot':
+                        sigma_lc = np.std(y_use[self.oot_start:self.oot_end])
+                    else:
+                        sigma_lc = yerr_use[mask_use]
+                    
+                    if self.eclipseGeometry == 'Eclipse':
+                        depth = pm.Deterministic('depth',e_depth * 1.0)
+                    else:
+                        depth = pm.Deterministic('depth',tt.pow(ror,2))
 
+                    if (self.ld_law == 'quadratic') & (self.eclipseGeometry == "Transit"):
 
-                        ####
-                        #### Set priors on the limb darkening
-                        ####
-                        if (self.fixLDu1 == True) & (specInfo is not None):
-                            assert self.ld_law=='quadratic'
-                            ## Make sure u1 is fixed
-                            u1_use = get_from_t(broadband,'u_star__0','mean')
-                            ## Kipping et al. 2013 equation 8
-                            u2_use = pm.Uniform('u_star__1',lower=-0.5 * u1_use,upper=1. - u1_use)
-                            
-                            #u1 = pm.Deterministic('u_star__0',u1_use)
-                            
-                            u_star = [u1_use,u2_use]
-                        elif (self.u_lit == None) | (fitLimbDarkParamsOverride == True):
-                            if (self.eclipseGeometry == 'Transit') | (self.eclipseGeometry == 'PhaseCurve'):
-                                if self.ld_law == 'quadratic':
-                                    u_star = xo.QuadLimbDark("u_star",testval=self.ld_start)
-                                else:
-                                    # u_star = pm.Lognormal("u_star",mu=np.log(0.1), sigma=0.5,
-                #                                             shape=(default_starry_ld_deg,))
-                                    #ld_start[0] = 0.1
-                                    ld_start = self.ld_start
-                                    u_star = pm.Normal("u_star",mu=ld_start,testval=ld_start,
-                                                    sigma=2.0,
-                                                    shape=(self.starry_ld_degree,))
-                            else:
-                                u_star = 0.0
-                        elif (self.u_lit == 'interpSpecOnly'):
-                            u_star = []
-                            for u_lit_ind in range(self.u_lit_degree):
-                                thisWave = specInfo['waveMid']
-                                u_star.append(self.interpFuncs[u_lit_ind](thisWave))
-                        else:
-                            u_star = self.u_lit
-
-                        ###
-                        ### Priors on the planet radius
-                        ###
-
-                        if (self.eclipseGeometry == 'Eclipse') | (self.eclipseGeometry == 'PhaseCurve'):
-                            e_depth = pm.Normal("e_depth",mu=self.e_depth_guess,sigma=2e-3)
-                            if self.ror_prior is None:
-                                raise Exception("Must have an ror prior for eclipse")
-                            ror = pm.TruncatedNormal("ror",mu=self.ror_prior[0],
-                                    testval=self.ror_prior[0],
-                                    sigma=self.ror_prior[1],
-                                    lower=0.0)
-                        else:
-                            if specInfo is None:
-                                ### Broadband case
-                                ror = pm.Lognormal("ror", mu=np.log(0.0822), sigma=0.5)
-                            else:
-                                ### Spectroscopic case
-                                ### Faster to start near the broadband value
-                                mean_r = get_from_t(broadband,'ror','mean')
-                                ror = pm.Lognormal("ror", mu=np.log(mean_r), sigma=0.3)
-
+                        # Orbit model
+                        orbit = xo.orbits.KeplerianOrbit(
+                            period=period,
+                            a=a,
+                            incl=incl * np.pi/180.,
+                            t0=t0,
+                            ecc=ecc,
+                            omega=omega * np.pi/180.,
+                        )
                         
-                        if self.fitSigma == 'fit':
-                            sigma_lc = pm.Lognormal("sigma_lc", mu=np.log(np.median(yerr_use)), sigma=0.5)
-                        elif self.fitSigma == 'oot':
-                            sigma_lc = np.std(y_use[self.oot_start:self.oot_end])
+                        light_curves_obj = xo.LimbDarkLightCurve(u_star)
+                        light_curves1 = light_curves_obj.get_light_curve(orbit=orbit, r=ror,
+                                                                            t=x_use, texp=self.texp)
+                    
+                        light_curve = (tt.sum(light_curves1, axis=-1) + 1.)
+
+                    else:
+                        
+                        
+                        Msys = unitless_prefac * a**3 / period**2
+                        m_star = Msys ## assume it's all star for now
+                        
+                        star_map = starry.Map(udeg=self.starry_ld_degree)
+                        star_map[1:] = u_star
+                        star = starry.Primary(star_map,m=m_star,r=1.0)
+                        
+                        if self.eclipseGeometry == 'Transit':
+                            amp = 0
                         else:
-                            sigma_lc = yerr_use[mask_use]
+                            amp = e_depth
                         
-                        if self.eclipseGeometry == 'Eclipse':
-                            depth = pm.Deterministic('depth',e_depth * 1.0)
+                        planet = starry.kepler.Secondary(starry.Map(amp=amp),
+                                                        m=0.0,
+                                                        r=ror,
+                                                        porb=period,
+                                                        prot=period,
+                                                        t0=t0,
+                                                        ecc=ecc,
+                                                        omega=omega,
+                                                        inc=incl)
+                        sys = starry.System(star,planet,texp=self.texp)
+                        light_curve = sys.flux(t=x_use)
+                        self.sys = sys
+                        
+                        # ## make sure that the limb darkening law is physical
+                        # is_physical = pm.math.eq(star_map.limbdark_is_physical(), 1)
+                        # switch = pm.math.switch(is_physical,-np.inf,0)
+                        # ## Assign a potential to avoid these maps
+                        # physical_LD = pm.Potential('physical_ld', switch)
+                        
+                        # # Add a constraint that the map should be non-negative
+                        # mu = np.linspace(0,1,30)
+                        # map_evaluate = star_map.intensity(mu=mu)
+                        # ## number of points that are less than zero
+                        # num_bad = pm.math.sum(pm.math.lt(map_evaluate,0))
+                        # ## check if there are any "bad" points less than zero
+                        # badmap_check = pm.math.gt(num_bad, 0)
+                        # ## Set log probability to negative infinity if there are bad points. Otherwise set to 0.
+                        # switch = pm.math.switch(badmap_check,-np.inf,0)
+                        # ## Assign a potential to avoid these maps
+                        # nonneg_map = pm.Potential('nonneg_map', switch)
+                    
+
+                    if (self.fitSinusoid == True) & (self.phaseCurveFormulation != 'old-legacy'):
+                        phaseAmp = pm.TruncatedNormal('phase_amp',mu=0.5,sigma=0.5,
+                                                    lower=0.0,testval=1e-5)
+                        phaseOffset = pm.Normal('phaseOffset',mu=0,sigma=50,testval=0.0)
+                        arg = (x_use - t0) * np.pi * 2. / period + np.pi * phaseOffset/180.
+                        phaseModel = 1.0 - phaseAmp - phaseAmp * tt.cos(arg)
+                        ## save a variable for the phase variations to see them separately
+                        phaseModelVar = pm.Deterministic('phaseModel',phaseModel)
+
+                        if self.phaseCurveFormulation == 'standard':
+                            ## Find a dark planet model as a reference
+                            planet_dark = starry.kepler.Secondary(starry.Map(amp=0),
+                                                m=0.0,
+                                                r=ror,
+                                                porb=period,
+                                                prot=period,
+                                                t0=t0,
+                                                ecc=ecc,
+                                                omega=omega,
+                                                inc=incl)
+                            sys2 = starry.System(star,planet_dark,texp=self.texp)
+                            light_curve_darkplanet = sys2.flux(t=x_use)
+                            light_curve_darkplanet_var = pm.Deterministic('lc-darkplanet',light_curve_darkplanet)
+                            planet_emission = light_curve - light_curve_darkplanet
+                            light_curve = light_curve_darkplanet + planet_emission * phaseModel
+                            nightside_f = pm.Deterministic('nightsideDepth',e_depth * (1. - 2. * phaseAmp))
+                            planet_amp = pm.Deterministic('planetFullamp',e_depth * 2. * phaseAmp)
+                        elif self.phaseCurveFormulation == 'approx':
+                            light_curve = light_curve - amp + amp * phaseModel
                         else:
-                            depth = pm.Deterministic('depth',tt.pow(ror,2))
+                            raise Exception("{} not recognized".format(self.phaseCurveFormulation))
+                    ## save a "light_curves" pymc3 varaible with the astrophysical lightcurve
+                    light_curves = pm.Deterministic("light_curves",light_curve)
 
-                        if (self.ld_law == 'quadratic') & (self.eclipseGeometry == "Transit"):
+                    lc_trend_vector_multiplier = mean
+                    if 'poly' in self.trendType:
+                        xNorm = (x_use - np.median(x_use))/(np.max(x_use) - np.min(x_use))
+                        #xNorm_var = pm.Deterministic("xNorm",xNorm)
+                        poly_coeff = pm.Normal("poly_coeff",mu=0.0,testval=0.0,
+                                            sigma=0.1,
+                                            shape=(self.poly_ord))
+                        # if self.poly_ord > 1:
+                        #     raise NotImplementedError("Only does linear for now")
+                        for poly_ind in np.arange(self.poly_ord):
+                            if poly_ind == 0:
+                                poly_eval = xNorm * poly_coeff[self.poly_ord - poly_ind - 1]
+                            else:
+                                poly_eval = (poly_eval + poly_coeff[self.poly_ord - poly_ind - 1]) * xNorm
+                        full_coeff = poly_coeff# np.append(poly_coeff,0)
 
-                            # Orbit model
-                            orbit = xo.orbits.KeplerianOrbit(
-                                period=period,
-                                a=a,
-                                incl=incl * np.pi/180.,
-                                t0=t0,
-                                ecc=ecc,
-                                omega=omega * np.pi/180.,
-                            )
-                            
-                            light_curves_obj = xo.LimbDarkLightCurve(u_star)
-                            light_curves1 = light_curves_obj.get_light_curve(orbit=orbit, r=ror,
-                                                                                t=x_use, texp=self.texp)
-                        
-                            light_curve = (tt.sum(light_curves1, axis=-1) + 1.)
-
+                        if self.legacy_polynomial == True:
+                            lc_trend_vector_adder = lc_trend_vector_adder + poly_eval
                         else:
-                            
-                            
-                            Msys = unitless_prefac * a**3 / period**2
-                            m_star = Msys ## assume it's all star for now
-                            
-                            star_map = starry.Map(udeg=self.starry_ld_degree)
-                            star_map[1:] = u_star
-                            star = starry.Primary(star_map,m=m_star,r=1.0)
-                            
-                            if self.eclipseGeometry == 'Transit':
-                                amp = 0
-                            else:
-                                amp = e_depth
-                            
-                            planet = starry.kepler.Secondary(starry.Map(amp=amp),
-                                                            m=0.0,
-                                                            r=ror,
-                                                            porb=period,
-                                                            prot=period,
-                                                            t0=t0,
-                                                            ecc=ecc,
-                                                            omega=omega,
-                                                            inc=incl)
-                            sys = starry.System(star,planet,texp=self.texp)
-                            light_curve = sys.flux(t=x_use)
-                            self.sys = sys
-                            
-                            # ## make sure that the limb darkening law is physical
-                            # is_physical = pm.math.eq(star_map.limbdark_is_physical(), 1)
-                            # switch = pm.math.switch(is_physical,-np.inf,0)
-                            # ## Assign a potential to avoid these maps
-                            # physical_LD = pm.Potential('physical_ld', switch)
-                            
-                            # # Add a constraint that the map should be non-negative
-                            # mu = np.linspace(0,1,30)
-                            # map_evaluate = star_map.intensity(mu=mu)
-                            # ## number of points that are less than zero
-                            # num_bad = pm.math.sum(pm.math.lt(map_evaluate,0))
-                            # ## check if there are any "bad" points less than zero
-                            # badmap_check = pm.math.gt(num_bad, 0)
-                            # ## Set log probability to negative infinity if there are bad points. Otherwise set to 0.
-                            # switch = pm.math.switch(badmap_check,-np.inf,0)
-                            # ## Assign a potential to avoid these maps
-                            # nonneg_map = pm.Potential('nonneg_map', switch)
+                            lc_trend_vector_multiplier = lc_trend_vector_multiplier * (1.0 + poly_eval)
+
+                    # if 'mply' in self.trendType:
                         
-
-                        if (self.fitSinusoid == True) & (self.phaseCurveFormulation != 'old-legacy'):
-                            phaseAmp = pm.TruncatedNormal('phase_amp',mu=0.5,sigma=0.5,
-                                                        lower=0.0,testval=1e-5)
-                            phaseOffset = pm.Normal('phaseOffset',mu=0,sigma=50,testval=0.0)
-                            arg = (x_use - t0) * np.pi * 2. / period + np.pi * phaseOffset/180.
-                            phaseModel = 1.0 - phaseAmp - phaseAmp * tt.cos(arg)
-                            ## save a variable for the phase variations to see them separately
-                            phaseModelVar = pm.Deterministic('phaseModel',phaseModel)
-
-                            if self.phaseCurveFormulation == 'standard':
-                                ## Find a dark planet model as a reference
-                                planet_dark = starry.kepler.Secondary(starry.Map(amp=0),
-                                                    m=0.0,
-                                                    r=ror,
-                                                    porb=period,
-                                                    prot=period,
-                                                    t0=t0,
-                                                    ecc=ecc,
-                                                    omega=omega,
-                                                    inc=incl)
-                                sys2 = starry.System(star,planet_dark,texp=self.texp)
-                                light_curve_darkplanet = sys2.flux(t=x_use)
-                                light_curve_darkplanet_var = pm.Deterministic('lc-darkplanet',light_curve_darkplanet)
-                                planet_emission = light_curve - light_curve_darkplanet
-                                light_curve = light_curve_darkplanet + planet_emission * phaseModel
-                                nightside_f = pm.Deterministic('nightsideDepth',e_depth * (1. - 2. * phaseAmp))
-                                planet_amp = pm.Deterministic('planetFullamp',e_depth * 2. * phaseAmp)
-                            elif self.phaseCurveFormulation == 'approx':
-                                light_curve = light_curve - amp + amp * phaseModel
-                            else:
-                                raise Exception("{} not recognized".format(self.phaseCurveFormulation))
-                        ## save a "light_curves" pymc3 varaible with the astrophysical lightcurve
-                        light_curves = pm.Deterministic("light_curves",light_curve)
-
-                        lc_trend_vector_multiplier = mean
-                        if 'poly' in self.trendType:
-                            xNorm = (x_use - np.median(x_use))/(np.max(x_use) - np.min(x_use))
-                            #xNorm_var = pm.Deterministic("xNorm",xNorm)
-                            poly_coeff = pm.Normal("poly_coeff",mu=0.0,testval=0.0,
-                                                sigma=0.1,
-                                                shape=(self.poly_ord))
-                            # if self.poly_ord > 1:
-                            #     raise NotImplementedError("Only does linear for now")
-                            for poly_ind in np.arange(self.poly_ord):
-                                if poly_ind == 0:
-                                    poly_eval = xNorm * poly_coeff[self.poly_ord - poly_ind - 1]
-                                else:
-                                    poly_eval = (poly_eval + poly_coeff[self.poly_ord - poly_ind - 1]) * xNorm
-                            full_coeff = poly_coeff# np.append(poly_coeff,0)
-
-                            if self.legacy_polynomial == True:
-                                lc_trend_vector_adder = lc_trend_vector_adder + poly_eval
-                            else:
-                                lc_trend_vector_multiplier = lc_trend_vector_multiplier * (1.0 + poly_eval)
-
-                        # if 'mply' in self.trendType:
-                            
-                        #     poly_coeff2D = pm.Normal("poly_coeff2D",mu=0.0,testval=0.0,
-                        #                            sigma=0.1,
-                        #                            shape=(self.poly_ord,self.nSteps))
-                            
-                        #     poly_eval = 0.0
-                        #     for oneStep in self.steps:
-                        #         pts = self.offsetMask == oneStep
-
-                        #         xNorm = (x - np.median(x[pts]))/(np.max(x[pts]) - np.min(x[pts]))
-
-                        #         #xNorm_var = pm.Deterministic("xNorm",xNorm)
-                        #         # if self.poly_ord > 1:
-                        #         #     raise NotImplementedError("Only does linear for now")
-                        #         for poly_ind in np.arange(self.poly_ord):
-                        #             poly_eval = (poly_eval + poly_coeff2D[self.poly_ord - poly_ind - 1,oneStep] * tt.switch(pts,1.0,0.0)) * xNorm
-                                
-                        #     lc_trend_vector_multiplier = lc_trend_vector_multiplier * (1.0 + poly_eval)
-
-
-                        if 'fpah' in self.trendType:
-                            telemCoeff = pm.Normal('fpahCoeff',mu=0,sigma=5e-3)
-                            lc_trend_vector_multiplier = lc_trend_vector_multiplier * (1.0 + fpah * telemCoeff)
-                        if 'refpix' in self.trendType:
-                            refpixCoeff = pm.Normal('refpixCoeff',mu=0,sigma=0.5)
-                            lc_trend_vector_multiplier = lc_trend_vector_multiplier * (1.0 + refpix * refpixCoeff)
+                    #     poly_coeff2D = pm.Normal("poly_coeff2D",mu=0.0,testval=0.0,
+                    #                            sigma=0.1,
+                    #                            shape=(self.poly_ord,self.nSteps))
                         
-                        if self.offsetMask is None:
+                    #     poly_eval = 0.0
+                    #     for oneStep in self.steps:
+                    #         pts = self.offsetMask == oneStep
+
+                    #         xNorm = (x - np.median(x[pts]))/(np.max(x[pts]) - np.min(x[pts]))
+
+                    #         #xNorm_var = pm.Deterministic("xNorm",xNorm)
+                    #         # if self.poly_ord > 1:
+                    #         #     raise NotImplementedError("Only does linear for now")
+                    #         for poly_ind in np.arange(self.poly_ord):
+                    #             poly_eval = (poly_eval + poly_coeff2D[self.poly_ord - poly_ind - 1,oneStep] * tt.switch(pts,1.0,0.0)) * xNorm
+                            
+                    #     lc_trend_vector_multiplier = lc_trend_vector_multiplier * (1.0 + poly_eval)
+
+
+                    if 'fpah' in self.trendType:
+                        telemCoeff = pm.Normal('fpahCoeff',mu=0,sigma=5e-3)
+                        lc_trend_vector_multiplier = lc_trend_vector_multiplier * (1.0 + fpah * telemCoeff)
+                    if 'refpix' in self.trendType:
+                        refpixCoeff = pm.Normal('refpixCoeff',mu=0,sigma=0.5)
+                        lc_trend_vector_multiplier = lc_trend_vector_multiplier * (1.0 + refpix * refpixCoeff)
+                    
+                    if self.offsetMask is None:
+                        pass
+                    else:
+                        step_offsets = 0.0
+                        steps = self.steps
+                        nSteps = self.nSteps
+                        if nSteps == 1:
                             pass
                         else:
-                            step_offsets = 0.0
-                            steps = self.steps
-                            nSteps = self.nSteps
-                            if nSteps == 1:
-                                pass
-                            else:
-                                offsetArr = pm.Normal('stepOffsets',mu=0.0,testval=0.0,sigma=1,
-                                                    shape=(nSteps-1))
-                                for oneStep in steps:
-                                    if oneStep == 0:
-                                        pass
-                                    else:
-                                        pts = self.offsetMask == oneStep
-                                        step_offsets = step_offsets + tt.switch(pts,offsetArr[oneStep-1],0.0)
-                                        lc_trend_vector_multiplier = lc_trend_vector_multiplier * (1.0 + step_offsets * 1e-3)
-                                        #light_curves_trended[pts] = light_curves_trended[pts] + offsetArr[oneStep-1]
-                        
-                        light_curves_trended = pm.Deterministic("lc_trended",(light_curve * lc_trend_vector_multiplier))
-
-                        if (self.fitSinusoid == True) & (self.phaseCurveFormulation == 'old-legacy'):
-                            phaseAmp = pm.TruncatedNormal('phase_amp',mu=1e-5,sigma=1.0,
-                                                        lower=0.0,testval=1e-5)
-                            phaseOffset = pm.Normal('phaseOffset',mu=0,sigma=50,testval=0.0)
-                            arg = (x_use - t0) * np.pi * 2. / period + np.pi * phaseOffset/180.
-                            phaseModel = 1.0 - phaseAmp * tt.cos(arg)
-                            ## save a variable for the phase variations
-                            phaseModelVar = pm.Deterministic('phaseModel',phaseModel)
-                            light_curves_semifinal = light_curves_trended * phaseModel
-
-                        if self.expStart == True:
-                            expTau = pm.Lognormal("exp_tau",mu=np.log(1e-3),sd=2)
-                            expAmp = pm.Normal("exp_amp",mu=1e-3,sd=1e-2)
-                            exp_eval = (1. - expAmp * tt.exp(-(x_use - np.min(x_use)) / expTau))
-                            exp_model = pm.Deterministic('exp_model',exp_eval)
-                            light_curves_semifinal = light_curves_trended * exp_model
-                        elif self.expStart == 'double':
-                            expTau1 = pm.Lognormal("exp_tau1",mu=np.log(1e-3),sd=2)
-                            expAmp1 = pm.Normal("exp_amp1",mu=1e-3,sd=1e-2)
-                            expTau2 = pm.Lognormal("exp_tau2",mu=np.log(1e-3),sd=2)
-                            expAmp2 = pm.Normal("exp_amp2",mu=1e-2,sd=1e-2)
-                            xrel = x_use - np.min(x_use)
-                            exp_eval = (1. - expAmp1 * tt.exp(-(xrel) / expTau1) - expAmp2 * tt.exp(-(xrel) / expTau2))
-                            exp_model = pm.Deterministic('exp_model',exp_eval)
-                            light_curves_semifinal = light_curves_trended * exp_model
-                        else:
-                            light_curves_semifinal = light_curves_trended
-                        
-                        ## the mean converts to parts per thousand
+                            offsetArr = pm.Normal('stepOffsets',mu=0.0,testval=0.0,sigma=1,
+                                                shape=(nSteps-1))
+                            for oneStep in steps:
+                                if oneStep == 0:
+                                    pass
+                                else:
+                                    pts = self.offsetMask == oneStep
+                                    step_offsets = step_offsets + tt.switch(pts,offsetArr[oneStep-1],0.0)
+                                    lc_trend_vector_multiplier = lc_trend_vector_multiplier * (1.0 + step_offsets * 1e-3)
+                                    #light_curves_trended[pts] = light_curves_trended[pts] + offsetArr[oneStep-1]
                     
-                        # resid = self.y[mask] - light_curve
-                        #
-                        # # Transit GP parameters
-                        #
-                        # # original ones
-                        # # sigma_lc = pm.Lognormal("sigma_lc", mu=np.log(np.std(self.y[mask])), sd=10)
-                        # # rho_gp = pm.Lognormal("rho_gp", mu=0, sd=10)
-                        # # sigma_gp = pm.Lognormal("sigma_gp", mu=np.log(np.std(self.y[mask])), sd=10)
-                        #
-                        # ## adjusted set 1
-                        # # sigma_lc = pm.Lognormal("sigma_lc", mu=-3 * np.log(10.), sigma=2,testval=1e-3 * np.log(10.))
-                        # # rho_gp = pm.Lognormal("rho_gp", mu=0, sigma=10)
-                        # # sigma_gp = pm.Lognormal("sigma_gp", mu=-3 * np.log(10.), sigma=2,testval=1e-3 * np.log(10.))
-                        #
-                        # # GP model for the light curve
-                        # ## adjusted set 2
-                        # sigma_lc = pm.Lognormal("sigma_lc", mu=np.log(np.std(self.y[mask])), sigma=0.5)
-                        # ## the correlations are on 0.02 day timescales
-                        # rho_gp = pm.Lognormal("rho_gp", mu=np.log(1e-2), sigma=0.5)
-                        #
-                        
-                        
-                        if 'gp' in self.trendType:
-                        ## assume a similar order of magnitude as the errorbars
-                            sigma_gp = pm.Lognormal("sigma_gp", mu=np.log(np.median(yerr_use)), sigma=0.5,
-                                                    testval=np.median(yerr_use) * 0.5)
-                            rho_gp_guess = (np.max(x_use) - np.min(x_use))
-                            rho_gp = pm.Lognormal("rho_gp", mu=np.log(rho_gp_guess), sigma=0.05,
-                                                testval=rho_gp_guess)
-                            ## non-periodic stochastically-driven, damped harmonic oscillator
-                            kernel = terms.SHOTerm(sigma=sigma_gp, rho=rho_gp, Q=0.25)
+                    light_curves_trended = pm.Deterministic("lc_trended",(light_curve * lc_trend_vector_multiplier))
+
+                    if (self.fitSinusoid == True) & (self.phaseCurveFormulation == 'old-legacy'):
+                        phaseAmp = pm.TruncatedNormal('phase_amp',mu=1e-5,sigma=1.0,
+                                                    lower=0.0,testval=1e-5)
+                        phaseOffset = pm.Normal('phaseOffset',mu=0,sigma=50,testval=0.0)
+                        arg = (x_use - t0) * np.pi * 2. / period + np.pi * phaseOffset/180.
+                        phaseModel = 1.0 - phaseAmp * tt.cos(arg)
+                        ## save a variable for the phase variations
+                        phaseModelVar = pm.Deterministic('phaseModel',phaseModel)
+                        light_curves_semifinal = light_curves_trended * phaseModel
+
+                    if self.expStart == True:
+                        expTau = pm.Lognormal("exp_tau",mu=np.log(1e-3),sd=2)
+                        expAmp = pm.Normal("exp_amp",mu=1e-3,sd=1e-2)
+                        exp_eval = (1. - expAmp * tt.exp(-(x_use - np.min(x_use)) / expTau))
+                        exp_model = pm.Deterministic('exp_model',exp_eval)
+                        light_curves_semifinal = light_curves_trended * exp_model
+                    elif self.expStart == 'double':
+                        expTau1 = pm.Lognormal("exp_tau1",mu=np.log(1e-3),sd=2)
+                        expAmp1 = pm.Normal("exp_amp1",mu=1e-3,sd=1e-2)
+                        expTau2 = pm.Lognormal("exp_tau2",mu=np.log(1e-3),sd=2)
+                        expAmp2 = pm.Normal("exp_amp2",mu=1e-2,sd=1e-2)
+                        xrel = x_use - np.min(x_use)
+                        exp_eval = (1. - expAmp1 * tt.exp(-(xrel) / expTau1) - expAmp2 * tt.exp(-(xrel) / expTau2))
+                        exp_model = pm.Deterministic('exp_model',exp_eval)
+                        light_curves_semifinal = light_curves_trended * exp_model
+                    else:
+                        light_curves_semifinal = light_curves_trended
+                    
+                    ## the mean converts to parts per thousand
+                
+                    # resid = self.y[mask] - light_curve
+                    #
+                    # # Transit GP parameters
+                    #
+                    # # original ones
+                    # # sigma_lc = pm.Lognormal("sigma_lc", mu=np.log(np.std(self.y[mask])), sd=10)
+                    # # rho_gp = pm.Lognormal("rho_gp", mu=0, sd=10)
+                    # # sigma_gp = pm.Lognormal("sigma_gp", mu=np.log(np.std(self.y[mask])), sd=10)
+                    #
+                    # ## adjusted set 1
+                    # # sigma_lc = pm.Lognormal("sigma_lc", mu=-3 * np.log(10.), sigma=2,testval=1e-3 * np.log(10.))
+                    # # rho_gp = pm.Lognormal("rho_gp", mu=0, sigma=10)
+                    # # sigma_gp = pm.Lognormal("sigma_gp", mu=-3 * np.log(10.), sigma=2,testval=1e-3 * np.log(10.))
+                    #
+                    # # GP model for the light curve
+                    # ## adjusted set 2
+                    # sigma_lc = pm.Lognormal("sigma_lc", mu=np.log(np.std(self.y[mask])), sigma=0.5)
+                    # ## the correlations are on 0.02 day timescales
+                    # rho_gp = pm.Lognormal("rho_gp", mu=np.log(1e-2), sigma=0.5)
+                    #
+                    
                     
                     if 'gp' in self.trendType:
-                        ## trying Matern 3/2
-                        #kernel = terms.Matern32Term(sigma=sigma_gp,rho=rho_gp)           
-                        gp = GaussianProcess(kernel, t=x_use[mask_use], yerr=sigma_lc,quiet=True)
+                    ## assume a similar order of magnitude as the errorbars
+                        sigma_gp = pm.Lognormal("sigma_gp", mu=np.log(np.median(yerr_use)), sigma=0.5,
+                                                testval=np.median(yerr_use) * 0.5)
+                        rho_gp_guess = (np.max(x_use) - np.min(x_use))
+                        rho_gp = pm.Lognormal("rho_gp", mu=np.log(rho_gp_guess), sigma=0.05,
+                                            testval=rho_gp_guess)
+                        ## non-periodic stochastically-driven, damped harmonic oscillator
+                        kernel = terms.SHOTerm(sigma=sigma_gp, rho=rho_gp, Q=0.25)
+                
+                if 'gp' in self.trendType:
+                    ## trying Matern 3/2
+                    #kernel = terms.Matern32Term(sigma=sigma_gp,rho=rho_gp)           
+                    gp = GaussianProcess(kernel, t=x_use[mask_use], yerr=sigma_lc,quiet=True)
 
-                        light_curves_no_GP = pm.Deterministic("{}lc_no_GP".format(modelNameTxt),
-                                                              light_curves_semifinal)
-                        resid = y_use[mask_use] - light_curves_no_GP[mask_use]
+                    light_curves_no_GP = pm.Deterministic("{}lc_no_GP".format(modelNameTxt),
+                                                            light_curves_semifinal)
+                    resid = y_use[mask_use] - light_curves_no_GP[mask_use]
 
-                        gp.marginal("{}gp".format(modelNameTxt), observed=resid)
-                        
-                        light_curves_final = pm.Deterministic("{}lc_final".format(modelNameTxt),
-                                                              light_curves_no_GP  + gp.predict(resid,t=x_use))
-                    else:
-                        light_curves_final = pm.Deterministic("{}lc_final".format(modelNameTxt),
-                                                              light_curves_semifinal)
-                        pm.Normal("{}obs".format(modelNameTxt), 
-                                  mu=light_curves_final[mask_use], sd=sigma_lc, 
-                                  observed=y_use[mask_use])
+                    gp.marginal("{}gp".format(modelNameTxt), observed=resid)
+                    
+                    light_curves_final = pm.Deterministic("{}lc_final".format(modelNameTxt),
+                                                            light_curves_no_GP  + gp.predict(resid,t=x_use))
+                else:
+                    light_curves_final = pm.Deterministic("{}lc_final".format(modelNameTxt),
+                                                            light_curves_semifinal)
+                    pm.Normal("{}obs".format(modelNameTxt), 
+                                mu=light_curves_final[mask_use], sd=sigma_lc, 
+                                observed=y_use[mask_use])
 
         resultDict = {}
         resultDict['model'] = model
@@ -1689,8 +1690,8 @@ class exo_model(object):
         ## sometimes the pandas dataframe has multiple values for one
         ## variable. For example, u_star goes to u_star__0 and u_star__1
         if broadband == True:
-            varnames = ['a','incl','t0','ror','depth','period']
-            varList = [ 'a','incl','t0','ror','depth','period']
+            varnames = ['a','incl','t0','ror','period']
+            varList = [ 'a','incl','t0','ror','period']
 
         else:
             varnames = ['a','incl','t0','ror','depth']
@@ -1736,8 +1737,11 @@ class exo_model(object):
             
             varnames.append('{}mean'.format(dataSetName))
             varList.append('{}mean'.format(dataSetName))
-                   
-        
+
+            varnames.append('{}depth'.format(dataSetName))
+            varList.append('{}depth'.format(dataSetName))
+            
+            
             if 'poly' in self.trendType:
                 for oneCoeff in np.arange(self.poly_ord):
                     varnames.append('{}poly_coeff'.format(dataSetName))
@@ -1922,10 +1926,10 @@ class exo_model(object):
 
     def corner_plot(self,resultDict,compact=True,re_param_u=True,
                     truths=None,range=None):
-        if re_param_u == True:
-            limb_dark = "u_star_quadlimbdark__"
-        else:
-            limb_dark = 'u_star'
+        # if re_param_u == True:
+        #     limb_dark = "u_star_quadlimbdark__"
+        # else:
+        limb_dark = 'u_star'
     
         if compact == True:
             varnames = ["depth"]
@@ -1942,7 +1946,8 @@ class exo_model(object):
             outName = 'cornerplot_full.pdf'
         
         if (self.u_lit == None) & (self.eclipseGeometry == 'Transit'):
-            varnames.append(limb_dark)
+            if limb_dark in resultDict['trace'].varnames:
+                varnames.append(limb_dark)
         
         samples = pm.trace_to_dataframe(resultDict['trace'], varnames=varnames)
         
