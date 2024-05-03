@@ -94,6 +94,7 @@ class exo_model(object):
                  correctedBinCenters=False,
                  customData=None,
                  batchInd=0,
+                 rho_gp_sigma=0.05,
                  ):
         #paramPath = 'parameters/spec_params/jwst/sim_mirage_007_grismc/spec_mirage_007_p015_full_emp_cov_weights_nchdas_mmm.yaml'
         #paramPath = 'parameters/spec_params/jwst/sim_mirage_007_grismc/spec_mirage_007_p016_full_emp_cov_weights_ncdhas_ppm.yaml'
@@ -149,6 +150,8 @@ class exo_model(object):
         self.paramFile = os.path.join(tshirtDir,paramPath)
         
         self.pipeType = pipeType
+
+        self.batchInd = None ## start with unset
         if pipeType == 'customPhot':
             self.customData = customData
             t1 = Table()
@@ -174,6 +177,7 @@ class exo_model(object):
                 self.spec = bspec.return_spec_obj(self.batchInd)
             else:
                 self.spec = spec_pipeline.spec(self.paramFile)
+
             t1, t2 = self.spec.get_wavebin_series(nbins=1,recalculate=recalculateTshirt)
             timeKey = 'Time'
         
@@ -230,6 +234,8 @@ class exo_model(object):
         self.poly_ord = poly_ord
         self.legacy_polynomial = legacy_polynomial
         
+        self.rho_gp_sigma = rho_gp_sigma
+
         self.expStart = expStart
         
         self.timeBin = timeBin
@@ -876,7 +882,8 @@ class exo_model(object):
                 sigma_gp = pm.Lognormal("sigma_gp", mu=np.log(np.median(yerr)), sigma=0.5,
                                         testval=np.median(yerr) * 0.5)
                 rho_gp_guess = (np.max(self.x) - np.min(self.x))
-                rho_gp = pm.Lognormal("rho_gp", mu=np.log(rho_gp_guess), sigma=0.05,
+                rho_gp = pm.Lognormal("rho_gp", mu=np.log(rho_gp_guess), 
+                                      sigma=self.rho_gp_sigma,
                                       testval=rho_gp_guess)
                 ## non-periodic stochastically-driven, damped harmonic oscillator
                 kernel = terms.SHOTerm(sigma=sigma_gp, rho=rho_gp, Q=0.25)

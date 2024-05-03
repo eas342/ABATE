@@ -141,7 +141,7 @@ What of kind of trend should be fit to the data? Options are
 * :code:`fpah` Assumes a linear function of the focal plane housing (FPAH) temperature deviation
 * :code:`refpix` Assumes a linear function of the mean reference pixels
 * :code:`poly+fpah` Assumes a polynomial and a linear function with focal plane array housing (FPAH) temp 
-
+* :code:`gp` Include a Gaussian process
 
 poly_ord
 ~~~~~~~~~
@@ -225,7 +225,12 @@ batchInd
 ~~~~~~~~~~~~
 If pipeType is 'batchSpec', then use this index to set which of many different reductions/observations is used.
 
+rho_gp_sigma
+~~~~~~~~~~~~
+Geometric standard deviation of the rho (timescale) parameter of the Gaussian process
+
 TShirt
 ------
 
 For more information on *recalculateTshirt* and *pipeType*, visit tshirt's documentation at https://tshirt.readthedocs.io/en/latest/index.html. Tshirt is automatically downloaded as part of the ABATE package, so there is no need to follow the install procedure.
+
