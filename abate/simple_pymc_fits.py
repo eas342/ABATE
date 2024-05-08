@@ -1827,7 +1827,7 @@ class exo_model(object):
     #
     #     return mult_coeff
     
-    def get_one_wave_result_dict(oneBin,nbins=None):
+    def get_one_wave_result_dict(self,oneBin,nbins=None):
         if nbins == None:
             nbins = self.nbins
 
