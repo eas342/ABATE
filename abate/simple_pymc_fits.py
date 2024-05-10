@@ -95,6 +95,8 @@ class exo_model(object):
                  customData=None,
                  batchInd=0,
                  rho_gp_sigma=0.05,
+                 expPriorTau = 1e-3,
+                 expPriorTauSigma = 2.,
                  ):
         #paramPath = 'parameters/spec_params/jwst/sim_mirage_007_grismc/spec_mirage_007_p015_full_emp_cov_weights_nchdas_mmm.yaml'
         #paramPath = 'parameters/spec_params/jwst/sim_mirage_007_grismc/spec_mirage_007_p016_full_emp_cov_weights_ncdhas_ppm.yaml'
@@ -237,6 +239,8 @@ class exo_model(object):
         self.rho_gp_sigma = rho_gp_sigma
 
         self.expStart = expStart
+        self.expPriorTau = expPriorTau
+        self.expPriorTauSigma = expPriorTauSigma
         
         self.timeBin = timeBin
         self.override_times = override_times
@@ -838,7 +842,8 @@ class exo_model(object):
                 light_curves_semifinal = light_curves_trended * phaseModel
 
             if self.expStart == True:
-                expTau = pm.Lognormal("exp_tau",mu=np.log(1e-3),sd=2)
+                expTau = pm.Lognormal("exp_tau",mu=np.log(self.expPriorTau),
+                                      sd=self.expPriorTauSigma)
                 expAmp = pm.Normal("exp_amp",mu=1e-3,sd=1e-2)
                 exp_eval = (1. - expAmp * tt.exp(-(x - np.min(x)) / expTau))
                 exp_model = pm.Deterministic('exp_model',exp_eval)

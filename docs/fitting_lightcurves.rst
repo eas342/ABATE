@@ -175,6 +175,14 @@ expStart
 Should the beginning be fit with an exponential? If True, there will be one exponential.
 If set to "double", two exponentials will be used.
 
+expPriorTau
+~~~~~~~~~~~
+Prior on the lightcurve exponential timescale geometric mean (which is also the median)
+
+expPriorTauSigma
+~~~~~~~~~~~~~~~~
+Prior on the log of the geometric mean of the log-normal distribution (ie. "sigma")
+
 mask
 ~~~~
 A mask of points to include in the fitting. Useful if skipping some obviously bad points. If set to :code:`None`, no points are rejected initially, but may be rejected later depending on the :code:`sigReject` parameter.
