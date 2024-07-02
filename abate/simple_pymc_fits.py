@@ -1099,11 +1099,26 @@ class exo_model(object):
             os.makedirs(direct1)
         t.write(outPath,overwrite=True)
     
-    def find_spectrum(self,nbins=None,doInference=False):
+    def find_spectrum(self,nbins=None,doInference=False,
+                      startInd=0):
+        """
+        Find the spectrum by looping through the wavelength bins
+
+        Parameters
+        ----------
+        nbins: int
+            Number of wavelength bins to loop through
+        doInference: bool
+            Find the posterior distribution? (Otherwise it finds the mxap solution only)
+
+        startInd: int
+            Starting index for the loop (for continuing a previously stopped run)
+        """
+        
         if nbins == None:
             nbins = self.nbins
         
-        bin_arr = np.arange(nbins)
+        bin_arr = np.arange(startInd,nbins)
         depth_list = []
         ## make sure the wavelength bins are established
         t1, t2 = self.spec.get_wavebin_series(nbins=nbins,
