@@ -170,6 +170,10 @@ phaseCurveFormulation
 If it is 'old-legacy', it was a quick wrong way Fp(phi) - (1.0 - A cos(phi + phi_0))
 'standard', it will be Fp(phi) = (1.0 - A - A cos(phi + phi_0))
 
+differentialMode
+~~~~~~~~~~~~~~~~~
+If False, fit the absolute transit depths/eclipse depths. If True, divide by the broadband.
+
 expStart
 ~~~~~~~~
 Should the beginning be fit with an exponential? If True, there will be one exponential.

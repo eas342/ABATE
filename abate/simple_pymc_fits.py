@@ -92,6 +92,7 @@ class exo_model(object):
                  fitSinusoid=False,
                  phaseCurveFormulation='standard',
                  correctedBinCenters=False,
+                 differentialMode=False,
                  customData=None,
                  batchInd=0,
                  rho_gp_sigma=0.05,
@@ -119,6 +120,7 @@ class exo_model(object):
         self.fixLDu1 = fixLDu1
         self.cores = cores
         self.nchains = nchains
+        self.differentialMode = differentialMode
         self.pymc3_init = pymc3_init
         self.e_depth_guess = e_depth_guess
         
@@ -860,6 +862,8 @@ class exo_model(object):
             else:
                 light_curves_semifinal = light_curves_trended
             
+            if (self.differentialMode == True) & (specInfo is not None):
+                light_curves_semifinal = light_curves_semifinal/specInfo['BBmxap_soln']['lc_final']
             ## the mean converts to parts per thousand
         
             # resid = self.y[mask] - light_curve
@@ -965,8 +969,13 @@ class exo_model(object):
         specInfo = {}
         specInfo['broadband'] = broadband
         specInfo['x'] = x1
-        specInfo['y'] = y1
-        specInfo['yerr'] = yerr1
+        if self.differentialMode == True:
+            specInfo['y'] = y1/self.y
+            specInfo['yerr'] = yerr1/self.y
+            specInfo['BBmxap_soln'] = self.bbRes['mxap_soln']
+        else:
+            specInfo['y'] = y1
+            specInfo['yerr'] = yerr1
         specInfo['waveName'] = waveName1
         waveStart, waveEnd, waveMid, dispIndicesTable = self.lookup_waveBins(nbins=nbins)
         specInfo['waveMid'] = waveMid[waveBinNum]
@@ -1127,6 +1136,9 @@ class exo_model(object):
         tnoise = self.spec.print_noise_wavebin(nbins=nbins,recalculate=False)
         waveList = tnoise['Wave (mid px)']
         for oneBin in bin_arr:
+            if self.differentialMode == True:
+                self.bbRes = self.run_all_broadband()
+            
             modelDict1 = self.build_model_spec(waveBinNum=oneBin,nbins=nbins)
             waveName = "{}_nbins_{}".format(waveList[oneBin],nbins)
             extraDescrip="_{}".format(waveName)
