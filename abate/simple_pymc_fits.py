@@ -972,7 +972,7 @@ class exo_model(object):
         if self.differentialMode == True:
             specInfo['y'] = y1/self.y
             specInfo['yerr'] = yerr1/self.y
-            specInfo['BBmxap_soln'] = self.bbRes['mxap_soln']
+            specInfo['BBmxap_soln'] = self.bbRes['map_soln']
         else:
             specInfo['y'] = y1
             specInfo['yerr'] = yerr1
