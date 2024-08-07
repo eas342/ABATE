@@ -1211,6 +1211,8 @@ class exo_model(object):
             model_list_astroph = []
             model_list_sys = []
             mask_list = []
+            if self.differentialMode == True:
+                self.bbRes = self.run_all_broadband()
         
             for oneBin in tqdm.tqdm(bin_arr):
                 modelDict1 = self.build_model_spec(waveBinNum=oneBin,nbins=nbins,
@@ -1989,6 +1991,28 @@ class exo_model(object):
         res = pm.hpd(resultDict['trace'],var_names=['final_lc'])
         return np.array(res['final_lc'])
     
+    def gather_spec_lc_stats(self):
+        """
+        Gather the lightcurve statistics from spectroscopic lightcurves
+        """
+        lcfit1 = self.collect_all_lc_and_fits()
+        resid1 = lcfit1['y'] - lcfit1['model_sys']
+        stdevArr1 = np.nanstd(resid1,axis=1)
+        resid1[lcfit1['mask']==0] = np.nan
+        stdevArr2 = np.nanstd(resid1,axis=1)
+        yerrArr = np.nanmedian(lcfit1['yerr'],axis=1)
+        res = {}
+        res['wave'] = lcfit1['wave']
+        res['yerr'] = yerrArr
+        res['unmasked std'] = stdevArr1
+        res['std'] = stdevArr2
+        if self.fitSigma == 'fit':
+            spAll = self.collect_spectrum(gatherAll=True)
+            res['fit sigma'] = spAll['sigma_lc']
+        else:
+            res['fit sigma'] = np.zeros(len(res['wave'])) * np.nan
+        return res
+
     def plot_lc_distribution(self,lc_hdi,pm_summary=None,rpl_upper=None):
         fig, ax = plt.subplots()
         #ax.errorbar(x,y,yerr=self.yerr)
