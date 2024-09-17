@@ -252,7 +252,12 @@ class exo_model(object):
         self.wbin_ends = wbin_ends
         
         self.nbins_resid = nbins_resid
+        
         self.equalize_bin_err = equalize_bin_err
+        if ((self.timeBin is not None) & (self.equalize_bin_err == False)):
+            print("NOTE NOTE NOTE ************** NOTE NOTE NOTE NOTE")
+            print("Binning with and equalize_bin_err=False not recommended")
+            print("NOTE NOTE NOTE ************** NOTE NOTE NOTE NOTE")
 
         self.broadband_fit_file = 'fit_results/broadband_fit_{}.csv'.format(self.descrip)
         if (pipeType == 'spec') | (pipeType == 'batchSpec'):
