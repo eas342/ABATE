@@ -1680,6 +1680,12 @@ class exo_model(object):
                                    'e_depth']
             additional_varList = ['phaseOffset','phase_amp',
                                   'e_depth']
+            if self.phaseCurveFormulation == 'standard':
+                additional_varNames.append('nightsideDepth')
+                additional_varNames.append('planetFullamp')
+                additional_varList.append('nightsideDepth')
+                additional_varList.append('planetFullamp')
+            
             for ind,oneVar in enumerate(additional_varNames):
                 varnames.append(oneVar)
                 varList.append(additional_varList[ind])
