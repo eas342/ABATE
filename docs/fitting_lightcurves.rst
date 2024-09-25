@@ -181,7 +181,7 @@ If set to "double", two exponentials will be used.
 
 expPriorTau
 ~~~~~~~~~~~
-Prior on the lightcurve exponential timescale geometric mean (which is also the median)
+Prior on the lightcurve exponential timescale geometric mean (which is also the median) in the same units as X (most likely days).
 
 expPriorTauSigma
 ~~~~~~~~~~~~~~~~
