@@ -592,7 +592,7 @@ class exo_model(object):
                 y = np.ascontiguousarray(y)
                 yerr = np.ascontiguousarray(yerr)
                 if self.equalize_bin_err == True:
-                    yerr = np.ones_like(yerr) * np.median(yerr)
+                    yerr = np.ones_like(yerr) * np.nanmedian(yerr)
                 
                 if 'fpah' in self.trendType:
                     xfpah,fpah,fpah_err = phot_pipeline.do_binning(x_to_bin,
@@ -1564,7 +1564,7 @@ class exo_model(object):
             x_bin, y_bin, y_bin_err = phot_pipeline.do_binning(modelDict['x'][dataMask],
                                                             resid[dataMask],nBin=self.nbins_resid)
             if self.equalize_bin_err == True:
-                y_bin_err = np.ones_like(y_bin_err) * np.median(y_bin_err)
+                y_bin_err = np.ones_like(y_bin_err) * np.nanmedian(y_bin_err)
             
             plt.errorbar(x_bin,y_bin,fmt='o')
         
@@ -2410,7 +2410,31 @@ def syn_phot_table(specList):
     t_syn['Depth err'] = np.round(np.array(synDepthErrList) * 1e6,1)
     return t_syn
 
+def calc_wav_sp(spList):
+    """
+    Calculate the Weighted Average of Spectra
+    Assuming they all of the same wavelength bins
+    """
+    nSpec = len(spList)
+    
+    nWaves = len(spList[0]['wave mid'])
+    allDepths = np.zeros([nWaves,nSpec])
+    weights = np.zeros_like(allDepths)
+    for spInd in np.arange(nSpec):
+        allDepths[:,spInd] = spList[spInd]['depth']
+        weights[:,spInd] = 1./spList[spInd]['depth err']**2
+    
+    norm = np.sum(weights,axis=1)
+    avgVal = np.sum(allDepths * weights,axis=1)/norm
+    avgErr = 1./np.sqrt(norm)
 
+    spOut = Table()
+    spOut['wave mid'] = spList[0]['wave mid']
+    spOut['wave width'] = spList[0]['wave width']
+    spOut['depth'] = avgVal
+    spOut['depth err'] = avgErr
+
+    return spOut
 
 if __name__ == "__main__":
     freeze_support()
