@@ -131,8 +131,10 @@ class exo_model(object):
             ## for quadratic limb darkening transits, 
             ## don't use starry directly, just use exoplanets
             self.starry_ld_degree = None
+            self.re_param_u = True
         else:
             self.starry_ld_degree = starry_ld_degree
+            self.re_param_u = False
         self.u_lit_file = u_lit_file
         if self.u_lit == 'interpSpecOnly':
             self.set_up_limbdarkening_interpolation()
@@ -250,7 +252,8 @@ class exo_model(object):
         self.correctedBinCenters = correctedBinCenters
         self.wbin_starts = wbin_starts
         self.wbin_ends = wbin_ends
-        
+        self.check_wavebins()
+
         self.nbins_resid = nbins_resid
         
         self.equalize_bin_err = equalize_bin_err
@@ -315,6 +318,22 @@ class exo_model(object):
     def check_phase(self):
         phase = (self.x - self.t0_lit[0]) / self.period_lit[0]
         return phase
+
+    def check_wavebins(self):
+        """
+        Check for some mistakes in the wavebins
+        """
+        if self.wbin_starts is None:
+            if self.wbin_ends is not None:
+                raise Exception("Can't only set wbin Starts to None")
+        elif self.wbin_ends is None:
+            if self.wbin_starts is not None:
+                raise Exception("Can't only set wbin Ends to None")
+        else:
+            binWidths = self.wbin_ends - self.wbin_starts
+            if np.sum(binWidths == 0) > 0:
+                raise Exception("Some Bin widths are zero")
+
 
     def inspect_physOrb_params(self,paramVal):
         """
@@ -1886,10 +1905,14 @@ class exo_model(object):
         resultDict = self.find_posterior(modelDict1,extraDescrip="_{}".format(waveName))
         return resultDict
 
-    def corner_plot(self,resultDict,compact=True,re_param_u=True,
+    def corner_plot(self,resultDict,compact=True,
+                    re_param_u=True,
                     truths=None,range=None):
-        if re_param_u == True:
-            limb_dark = "u_star_quadlimbdark__"
+        if self.re_param_u == True:
+            if re_param_u == True:
+                limb_dark = "u_star_quadlimbdark__"
+            else:
+                limb_dark = 'u_star'
         else:
             limb_dark = 'u_star'
     
