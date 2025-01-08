@@ -330,7 +330,8 @@ class exo_model(object):
             if self.wbin_starts is not None:
                 raise Exception("Can't only set wbin Ends to None")
         else:
-            binWidths = self.wbin_ends - self.wbin_starts
+            binWidths = (np.array(self.wbin_ends) - 
+                         np.array(self.wbin_starts))
             if np.sum(binWidths == 0) > 0:
                 raise Exception("Some Bin widths are zero")
 
