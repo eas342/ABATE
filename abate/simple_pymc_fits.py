@@ -75,6 +75,7 @@ class exo_model(object):
                  poly_ord=1,
                  legacy_polynomial=False,
                  expStart=None,
+                 hstPhase=None,
                  mask=None,
                  offsetMask=None,
                  timeBin=None,
@@ -245,7 +246,8 @@ class exo_model(object):
         self.expStart = expStart
         self.expPriorTau = expPriorTau
         self.expPriorTauSigma = expPriorTauSigma
-        
+        self.hstPhase = hstPhase
+
         self.timeBin = timeBin
         self.override_times = override_times
         
@@ -875,6 +877,16 @@ class exo_model(object):
                 exp_eval = (1. - expAmp * tt.exp(-(x - np.min(x)) / expTau))
                 exp_model = pm.Deterministic('exp_model',exp_eval)
                 light_curves_semifinal = light_curves_trended * exp_model
+            elif self.expStart == 'HST':
+                expTau = pm.Lognormal("exp_tau",mu=np.log(self.expPriorTau),
+                                      sd=self.expPriorTauSigma)
+                expAmp = pm.Normal("exp_amp",mu=1e-3,sd=1e-2)
+                x_exp = self.hstPhase
+
+                exp_eval = (1. - expAmp * tt.exp(-(x_exp) / expTau))
+                exp_model = pm.Deterministic('exp_model',exp_eval)
+                light_curves_semifinal = light_curves_trended * exp_model
+                
             elif self.expStart == 'double':
                 expTau1 = pm.Lognormal("exp_tau1",mu=np.log(1e-3),sd=2)
                 expAmp1 = pm.Normal("exp_amp1",mu=1e-3,sd=1e-2)

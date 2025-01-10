@@ -178,6 +178,7 @@ expStart
 ~~~~~~~~
 Should the beginning be fit with an exponential? If True, there will be one exponential.
 If set to "double", two exponentials will be used.
+If set to "HST", then :code:`hstPhase` is used to make a periodic exponential baseline as function of hstPhase
 
 expPriorTau
 ~~~~~~~~~~~
@@ -186,6 +187,10 @@ Prior on the lightcurve exponential timescale geometric mean (which is also the 
 expPriorTauSigma
 ~~~~~~~~~~~~~~~~
 Prior on the log of the geometric mean of the log-normal distribution (ie. "sigma")
+
+hstPhase
+~~~~~~~~
+Phase of exposure for HST periodic exponential baseline de-trending
 
 mask
 ~~~~
