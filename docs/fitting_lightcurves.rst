@@ -242,6 +242,10 @@ batchInd
 ~~~~~~~~~~~~
 If pipeType is 'batchSpec', then use this index to set which of many different reductions/observations is used.
 
+bbPixRange
+~~~~~~~~~~
+None or 2 element list. Range of pixels to use for broadband fitting. If None, the dispPixels from tshirt is used.
+
 rho_gp_sigma
 ~~~~~~~~~~~~
 Geometric standard deviation of the rho (timescale) parameter of the Gaussian process

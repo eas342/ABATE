@@ -96,6 +96,7 @@ class exo_model(object):
                  differentialMode=False,
                  customData=None,
                  batchInd=0,
+                 bbPixRange=None,
                  rho_gp_sigma=0.05,
                  expPriorTau = 1e-3,
                  expPriorTauSigma = 2.,
@@ -185,7 +186,15 @@ class exo_model(object):
             else:
                 self.spec = spec_pipeline.spec(self.paramFile)
 
-            t1, t2 = self.spec.get_wavebin_series(nbins=1,recalculate=recalculateTshirt)
+            if bbPixRange is None:
+                bbBinStarts=None
+                bbBinEnds=None
+            else:
+                bbBinStarts=[bbPixRange[0]]
+                bbBinEnds=[bbPixRange[1]]
+            
+            t1, t2 = self.spec.get_wavebin_series(nbins=1,recalculate=recalculateTshirt,
+                                                  binStarts=bbBinStarts,binEnds=bbBinEnds)
             timeKey = 'Time'
         
         print("Raw file search empty is ok for grabbing lightcurves")
