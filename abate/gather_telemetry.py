@@ -32,9 +32,10 @@ def telemfile_path(descrip):
 
     return os.path.join('detrending_vectors',telem_fileName)
 
+#def get_slew_hist(tshi)
 
 def get_telem(tshirt_path,tserType='spec',smoothingOrder=5,
-              batchInd=0):
+              batchInd=0,mnemonic=None):
     """
     Gather telemetry for a tshirt object
     tserType = 'spec', 'batchSpec' or 'phot'
@@ -49,14 +50,20 @@ def get_telem(tshirt_path,tserType='spec',smoothingOrder=5,
             tshirt_obj = spec_pipeline.spec(tshirt_path)
         t1, t2 = tshirt_obj.get_wavebin_series(nbins=1)
         x = t1['Time']
-        mnemonic = 'IGDP_NRC_A_T_LWFPAH1'
+        
         resultFile = tshirt_obj.specFile
     else:
         tshirt_obj = phot_pipeline.phot(tshirt_path)
         t1, t2 = tshirt_obj.get_tSeries()
         x = t1['Time (JD)']
-        mnemonic = 'IGDP_NRC_A_T_SWFPAH1'
+        
         resultFile = tshirt_obj.photFile
+
+    if mnemonic is None:
+        if (tserType == 'spec') | (tserType == 'batchSpec'):
+            mnemonic = 'IGDP_NRC_A_T_LWFPAH1'
+        else:
+            mnemonic = 'IGDP_NRC_A_T_SWFPAH1'
 
     head = fits.getheader(resultFile,extname='ORIG HEADER')
     utc_bjd_offset = (head['MJDMIDI'] - head['BJDMID']) ## days
