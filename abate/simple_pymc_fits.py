@@ -2481,6 +2481,18 @@ def calc_wav_sp(spList):
 
     return spOut
 
+def overplot_spectra(spList,obs='depth'):
+    """
+    Overplot spectra
+    """
+    fig, ax = plt.subplots()
+    for oneSp in spList:
+        ax.errorbar(oneSp['wave mid'],
+                    oneSp['{}'.format(obs)],
+                    oneSp['{} err'.format(obs)])
+    ax.set_xlabel("Wavelength ($\mu$m)")
+
+
 if __name__ == "__main__":
     freeze_support()
 
