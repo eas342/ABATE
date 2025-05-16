@@ -2122,6 +2122,17 @@ class exo_model(object):
             ror_list, wavelist = self.find_spectrum(doInference=False) ## plot max a priori sol
         ror_list, wavelist = self.find_spectrum(doInference=True)
         self.plot_spec()
+
+    def run_all_or_cached(self):
+        """
+        Check if there's a spectrum file, if not run.
+        """
+        if os.path.exists(self.specFileName) == False:
+            self.run_all()
+            sp = self.collect_spectrum(gatherAll=True)
+        else:
+            sp = ascii.read(self.specFileName)
+        return sp
     
     
 def get_from_t(tab,var,val):
