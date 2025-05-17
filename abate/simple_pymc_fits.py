@@ -2172,7 +2172,8 @@ spec_to_comp2 = 'fit_results/mirage_023_grismr_newspec_ncdhas_fixLD/spectrum_mir
 
 def compare_spectra(specList=[spec_to_comp1,spec_to_comp2],
                     labelList=['Free LD','Fixed LD at truth'],
-                    showPlot=False,waveOffset=0.0):
+                    showPlot=False,waveOffset=0.0,
+                    waveKey='wave mid'):
     """
     Compare 2 or more spectra from different analysis techniques
     
@@ -2190,22 +2191,22 @@ def compare_spectra(specList=[spec_to_comp1,spec_to_comp2],
     specStorage = []
     for ind,oneSpec in enumerate(specList):
         dat = ascii.read(oneSpec)
-        dat.sort('wave')
+        dat.sort(waveKey)
         if ind == 1:
-            dat['wave'] = dat['wave'] + waveOffset
+            dat[waveKey] = dat[waveKey] + waveOffset
         specStorage.append(dat)
-        ax0.errorbar(dat['wave'],dat['depth'] * 1e6,yerr=dat['depth err'] * 1e6,label=labelList[ind])
+        ax0.errorbar(dat[waveKey],dat['depth'] * 1e6,yerr=dat['depth err'] * 1e6,label=labelList[ind])
     ax0.set_ylabel("Depth (ppm)")
     ax0.legend()
     ax1.set_xlabel("Wavelength ($\mu$m)")
     
     for ind1,dat in enumerate(specStorage):
-        wave1 = dat['wave']
+        wave1 = dat[waveKey]
         depth1 = dat['depth']
         err1 = dat['depth err']
         for ind2,dat2 in enumerate(specStorage):
             if ind2 > ind1:
-                wave2 = dat2['wave']
+                wave2 = dat2[waveKey]
                 depth2 = dat2['depth']
                 err2 = dat2['depth err']
                 comb_err = np.sqrt(err1**2 + err2**2)
@@ -2218,7 +2219,9 @@ def compare_spectra(specList=[spec_to_comp1,spec_to_comp2],
     if showPlot == True:
         fig.show()
     else:
-        fig.savefig('plots/comparison_spectra/comparison_spectra.pdf')
+        outPath = 'plots/comparison_spectra/comparison_spectra.pdf'
+        phot_pipeline.ensure_directories_are_in_place(outPath)
+        fig.savefig(outPath)
 
 def calc_starry_model(time,a=8.0,period=3.0,
                       u_star=[0.1,0.1],
