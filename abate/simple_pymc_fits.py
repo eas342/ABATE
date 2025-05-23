@@ -1016,8 +1016,12 @@ class exo_model(object):
         specInfo['broadband'] = broadband
         specInfo['x'] = x1
         if self.differentialMode == True:
-            specInfo['y'] = y1/self.y
-            specInfo['yerr'] = yerr1/self.y
+            if hasattr(self,'y_full_res') == True:
+                ydivide = self.y_full_res
+            else:
+                ydivide = self.y
+            specInfo['y'] = y1/ydivide
+            specInfo['yerr'] = yerr1/ydivide
             specInfo['BBmxap_soln'] = self.bbRes['map_soln']
         else:
             specInfo['y'] = y1
