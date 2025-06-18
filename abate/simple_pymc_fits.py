@@ -1354,6 +1354,67 @@ class exo_model(object):
         print("Saving file to {}".format(outPath))
         outHDU.writeto(outPath,overwrite=True)
     
+    def get_2D_residuals(self,nbins=None):
+        lc_res_comb = self.collect_all_lc_and_fits(nbins=nbins)
+        resid = lc_res_comb['y'] - lc_res_comb['model_sys']
+        waveLim = [np.min(lc_res_comb['wave']),
+                   np.max(lc_res_comb['wave'])]
+        
+        timeLim = [0,(np.max(lc_res_comb['x'][0]) - np.min(lc_res_comb['x'][0])) * 24. * 60.]
+        residDat = {}
+        residDat['resid'] = resid
+        residDat['timeLim (min)'] = timeLim
+        residDat['waveLim'] = waveLim
+        return residDat
+
+    def plot_2D_residuals(self,nbins=None):
+        """
+        Save plot of 2D residuals
+        """
+        residDat = self.get_2D_residuals(nbins=nbins)
+        resid = residDat['resid']
+        timeLim = residDat['timeLim (min)']
+        waveLim = residDat['waveLim']
+        
+        plt.imshow(resid,aspect='auto',vmin=-1.5,vmax=1.5,
+                    extent=[timeLim[0],timeLim[1],
+                    waveLim[0],waveLim[1]])
+        plt.xlabel("Time (min)")
+        plt.ylabel("Wavelength (um)")
+        outPath = 'plots/2d_lightcurves/2d_resid_{}.png'.format(self.descrip)
+        phot_pipeline.ensure_directories_are_in_place(outPath)
+        print("Saving plot to {}".format(outPath))
+        plt.savefig(outPath,dpi=150,bbox_inches='tight',facecolor='white')
+    
+    def plot_2D_covar(self,nbins=None,vmin=0,vmax=0.3):
+        """
+        Save a plot of 2D covariance
+        """
+        residDat = self.get_2D_residuals(nbins=nbins)
+        cov_calc = np.cov(residDat['resid'])
+        waveLim = residDat['waveLim']
+        covPlot = plt.imshow(cov_calc,extent=[waveLim[0],waveLim[1],
+                             waveLim[0],waveLim[1]],
+                             vmin=vmin,vmax=vmax)
+        plt.xlabel("Wavelength ($\mu$m)")
+        plt.ylabel("Wavelength ($\mu$m)")
+        plt.colorbar(covPlot,label='Covariance (1e-3)')
+        plt.title("Covariance of Lightcurve Residuals")
+
+        ## show amplifier boundaries
+        if self.pipeType == 'spec':
+            waveBound = self.spec.wavecal(np.array([512,1024,1536]))
+            for oneWave in waveBound:
+                if ((oneWave > np.min(waveLim)) &
+                    (oneWave <= np.max(waveLim))):
+                    plt.axvline(oneWave,color='red')
+
+        outPath = 'plots/2d_lightcurves/2d_cov_{}.png'.format(self.descrip)
+        phot_pipeline.ensure_directories_are_in_place(outPath)
+        print("Saving plot to {}".format(outPath))
+
+        plt.savefig(outPath,dpi=150,bbox_inches='tight',facecolor='white')
+
     def lookup_waveBins(self,nbins):
         """
         Look up the wavelength bin starts, middles and ends
