@@ -1395,7 +1395,8 @@ class exo_model(object):
         waveLim = residDat['waveLim']
         covPlot = plt.imshow(cov_calc,extent=[waveLim[0],waveLim[1],
                              waveLim[0],waveLim[1]],
-                             vmin=vmin,vmax=vmax)
+                             vmin=vmin,vmax=vmax,
+                             origin='lower')
         plt.xlabel("Wavelength ($\mu$m)")
         plt.ylabel("Wavelength ($\mu$m)")
         plt.colorbar(covPlot,label='Covariance (1e-3)')
@@ -1408,6 +1409,7 @@ class exo_model(object):
                 if ((oneWave > np.min(waveLim)) &
                     (oneWave <= np.max(waveLim))):
                     plt.axvline(oneWave,color='red')
+                    plt.axhline(oneWave,color='red')
 
         outPath = 'plots/2d_lightcurves/2d_cov_{}.png'.format(self.descrip)
         phot_pipeline.ensure_directories_are_in_place(outPath)
