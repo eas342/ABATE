@@ -1384,14 +1384,45 @@ class exo_model(object):
         outPath = 'plots/2d_lightcurves/2d_resid_{}.png'.format(self.descrip)
         phot_pipeline.ensure_directories_are_in_place(outPath)
         print("Saving plot to {}".format(outPath))
-        plt.savefig(outPath,dpi=150,bbox_inches='tight',facecolor='white')
+        for extension in ['.png','pdf']:
+            plt.savefig(outPath.replace('.png',extension),
+                        dpi=150,bbox_inches='tight',facecolor='white')
     
-    def plot_2D_covar(self,nbins=None,vmin=0,vmax=0.3):
+    def plot_2D_covar(self,nbins=None,vmin=None,vmax=None,
+                      correlation=False,titleText=None):
         """
         Save a plot of 2D covariance
+
+        Parameters
+        ----------
+        nbins: int
+            Number of wavelength bins to use
+        vmin: float
+            Passed to the matplotlib.pyplot.imshow min px
+        vmax: float
+            Passed to the matplotlib.pyplot.imshow max px
+        correlation: bool
+            Use a correlation rather than covariance?
+        titleText: str
+            Custom title text for the plot
         """
         residDat = self.get_2D_residuals(nbins=nbins)
-        cov_calc = np.cov(residDat['resid'])
+        if correlation == True:
+            cov_calc = np.corrcoef(residDat['resid']) * 100.
+            colorbarText = r'Correlation (%)'
+            outPrefix = 'corr'
+            titleTextZ = 'Correlation'
+        else:
+            cov_calc = np.cov(residDat['resid'])
+            colorbarText = 'Covariance (1e-3)'
+            outPrefix = 'cov'
+            titleTextZ = 'Covariance'
+            if vmin is None:
+                vmin = 0.
+            if vmax is None:
+                vmax = 0.3
+            
+
         waveLim = residDat['waveLim']
         covPlot = plt.imshow(cov_calc,extent=[waveLim[0],waveLim[1],
                              waveLim[0],waveLim[1]],
@@ -1399,11 +1430,20 @@ class exo_model(object):
                              origin='lower')
         plt.xlabel("Wavelength ($\mu$m)")
         plt.ylabel("Wavelength ($\mu$m)")
-        plt.colorbar(covPlot,label='Covariance (1e-3)')
-        plt.title("Covariance of Lightcurve Residuals")
+        plt.colorbar(covPlot,label=colorbarText)
+        if titleText is None:
+            titleText = "{} of Lightcurve Residuals".format(titleTextZ)
+        plt.title(titleText)
 
-        ## show amplifier boundaries
-        if self.pipeType == 'spec':
+        ## See if it's NIRCam
+        head = fits.getheader(self.spec.specFile,extname='ORIG HEADER')
+        if 'INSTRUME' in head:
+            instrument = head['INSTRUME']
+        else:
+            instrument = 'unknown'
+        
+        ## show amplifier boundaries for NIRCam
+        if ((self.pipeType == 'spec') & (instrument.upper() == 'NIRCAM')):
             waveBound = self.spec.wavecal(np.array([512,1024,1536]))
             for oneWave in waveBound:
                 if ((oneWave > np.min(waveLim)) &
@@ -1411,7 +1451,8 @@ class exo_model(object):
                     plt.axvline(oneWave,color='red')
                     plt.axhline(oneWave,color='red')
 
-        outPath = 'plots/2d_lightcurves/2d_cov_{}.png'.format(self.descrip)
+        outPath = 'plots/2d_lightcurves/2d_{}_{}.png'.format(outPrefix,
+                                                             self.descrip)
         phot_pipeline.ensure_directories_are_in_place(outPath)
         print("Saving plot to {}".format(outPath))
 
@@ -1989,7 +2030,7 @@ class exo_model(object):
 
         modelDict1 = self.build_model_spec(waveBinNum=oneBin,nbins=nbins,
                                                 forceRecalculate=False)
-        modelDict1['map_soln'] = 'placeholder'
+        #modelDict1['map_soln'] = 'placeholder'
         waveName = "{}_nbins_{}".format(waveList_midpx[oneBin],nbins)
         resultDict = self.find_posterior(modelDict1,extraDescrip="_{}".format(waveName))
         return resultDict
