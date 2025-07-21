@@ -286,7 +286,26 @@ class exo_model(object):
             self.get_telem_vec()
         if 'refpix' in self.trendType:
             self.get_refpix_vec()
+        if 'centroid' in self.trendType:
+            self.get_centroid_vec()
     
+    def get_centroid_vec(self,srcInd=0):
+        """
+        Get the centroid vector
+        """
+        
+        if self.pipeType == 'phot':
+            with fits.open(self.phot.photFile) as HDUList:
+                self.cenData = np.array(HDUList['CENTROIDS'].data[:,srcInd,:])
+                self.cenData = self.cenData - np.median(self.cenData,axis=0)
+        elif self.pipeType == 'spec':
+            with fits.open(self.spec.specFile) as HDUList:
+                self.cenData = np.array(HDUList['CENTROID'].data[srcInd,:])
+                self.cenData = self.cenData - np.median(self.cenData)
+        else:
+            msg = "Not set up fo pipeType={}".format(self.pipeType)
+            raise NotImplementedError(msg)
+
     def get_telem_vec(self,reDo=False):
         """
         Get a vector from spacecraft telemetry
@@ -573,7 +592,12 @@ class exo_model(object):
                     refpix_in = self.refpix_full_res
                 else:
                     refpix_in = self.refpix
-            
+            if 'centroid' in self.trendType:
+                if hasattr(self,'cenData_full_res'):
+                    cenData_in = self.cenData_full_res
+                else:
+                    cenData_in = self.cenData
+                    
             if self.timeBin is None:
                 ## no binning of lightcurves
                 x, y, yerr = x_in, y_in, yerr_in
@@ -581,6 +605,8 @@ class exo_model(object):
                     fpah = fpah_in
                 if 'refpix' in self.trendType:
                     refpix = refpix_in
+                if 'centroid' in self.trendType:
+                    cenData = cenData_in
             else:
                 if (self.timeBin < len(mask)) | hasattr(self,'full_res_mask'):
                     ### Handles two cases
@@ -599,7 +625,9 @@ class exo_model(object):
                         fpah_to_bin = fpah_in[self.full_res_mask]
                     if 'refpix' in self.trendType:
                         refpix_to_bin = refpix_in[self.full_res_mask]
-                    
+                    if 'centroid' in self.trendType:
+                        cenData_to_bin = cenData_in[self.full_res_mask]
+                                        
                     ## do nothing if the mask is meant for binned data
                     if (self.timeBin == len(mask)):
                         pass
@@ -617,7 +645,9 @@ class exo_model(object):
                     if 'fpah' in self.trendType:
                         fpah_to_bin = fpah_in
                     if 'refpix' in self.trendType:
-                        refpix_to_bin = refpix_in    
+                        refpix_to_bin = refpix_in
+                    if 'centroid' in self.trendType:
+                        cenData_to_bin = cenData
 
                 x, y, yerr = phot_pipeline.do_binning(x_to_bin, y_to_bin,nBin=self.timeBin)
                 y = np.ascontiguousarray(y)
@@ -635,7 +665,13 @@ class exo_model(object):
                                                                 refpix_to_bin,
                                                                 nBin=self.timeBin)
                     refpix = np.ascontiguousarray(refpix)
-                
+
+                if 'centroid' in self.trendType:
+                    xcenData,cenData,cenData_err = phot_pipeline.do_binning(x_to_bin,
+                                                                cenData_to_bin,
+                                                                nBin=self.timeBin)
+                    cenData = np.ascontiguousarray(cenData)
+
                 finite_y = np.isfinite(y)
                 
                 mask = mask & finite_y ## make sure to only include finite points
@@ -654,6 +690,8 @@ class exo_model(object):
                             self.fpah_full_res = deepcopy(self.fpah)
                         if 'refpix' in self.trendType:
                             self.refpix_full_res = deepcopy(self.refpix)
+                        if 'centroid' in self.trendType:
+                            self.cenData_full_res = deepcopy(self.cenData)
 
                     self.x = x
                     self.y = y
@@ -662,6 +700,8 @@ class exo_model(object):
                         self.fpah = fpah
                     if 'refpix' in self.trendType:
                         self.refpix = refpix
+                    if 'centroid' in self.trendType:
+                        self.cenData = cenData
                 
                 if self.offsetMask is not None:
                     if hasattr(self,'full_res_offsetMask') == True:
@@ -847,6 +887,11 @@ class exo_model(object):
                 refpixCoeff = pm.Normal('refpixCoeff',mu=0,sigma=0.5)
                 lc_trend_vector_multiplier = lc_trend_vector_multiplier * (1.0 + refpix * refpixCoeff)
             
+            if 'centroid' in self.cenData:
+                cenCoeff = pm.Normal('cenCoeff',mu=0,sigma=0.05)
+                lc_trend_vector_multiplier = lc_trend_vector_multiplier * (1.0 + cenData * cenCoeff)
+
+
             if self.offsetMask is None:
                 pass
             else:
@@ -1873,6 +1918,10 @@ class exo_model(object):
         if 'refpix' in self.trendType:
             varnames.append('refpixCoeff')
             varList.append('refpixCoeff')
+
+        if 'centroid' in self.trendType:
+            varnames.append('cenCoeff')
+            varList.append('cenCoeff')
 
         if self.offsetMask is None:
             pass
