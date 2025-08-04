@@ -2329,7 +2329,7 @@ spec_to_comp1 = 'fit_results/mirage_023_grismr_newspec_ncdhas/spectrum_mirage_02
 spec_to_comp2 = 'fit_results/mirage_023_grismr_newspec_ncdhas_fixLD/spectrum_mirage_023_grismr_newspec_ncdhas_fixLD.csv'
 
 def compare_spectra(specList=[spec_to_comp1,spec_to_comp2],
-                    labelList=['Free LD','Fixed LD at truth'],
+                    labelList=[None,None],
                     showPlot=False,waveOffset=0.0,
                     waveKey='wave mid'):
     """
