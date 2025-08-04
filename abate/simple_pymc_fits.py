@@ -297,11 +297,12 @@ class exo_model(object):
         if self.pipeType == 'phot':
             with fits.open(self.phot.photFile) as HDUList:
                 self.cenData = np.array(HDUList['CENTROIDS'].data[:,srcInd,:])
-                self.cenData = self.cenData - np.median(self.cenData,axis=0)
+                self.cenData = self.cenData - np.nanmedian(self.cenData,axis=0)
         elif self.pipeType == 'spec':
             with fits.open(self.spec.specFile) as HDUList:
                 self.cenData = np.array(HDUList['CENTROID'].data[srcInd,:])
-                self.cenData = self.cenData - np.median(self.cenData)
+                self.cenData = self.cenData - np.nanmedian(self.cenData)
+
         else:
             msg = "Not set up fo pipeType={}".format(self.pipeType)
             raise NotImplementedError(msg)
@@ -887,7 +888,7 @@ class exo_model(object):
                 refpixCoeff = pm.Normal('refpixCoeff',mu=0,sigma=0.5)
                 lc_trend_vector_multiplier = lc_trend_vector_multiplier * (1.0 + refpix * refpixCoeff)
             
-            if 'centroid' in self.cenData:
+            if 'centroid' in self.trendType:
                 cenCoeff = pm.Normal('cenCoeff',mu=0,sigma=0.05)
                 lc_trend_vector_multiplier = lc_trend_vector_multiplier * (1.0 + cenData * cenCoeff)
 
