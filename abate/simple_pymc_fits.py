@@ -1413,7 +1413,8 @@ class exo_model(object):
         residDat['waveLim'] = waveLim
         return residDat
 
-    def plot_2D_residuals(self,nbins=None):
+    def plot_2D_residuals(self,nbins=None,
+                          vmin=-1.5,vmax=1.5):
         """
         Save plot of 2D residuals
         """
@@ -1422,7 +1423,7 @@ class exo_model(object):
         timeLim = residDat['timeLim (min)']
         waveLim = residDat['waveLim']
         
-        plt.imshow(resid,aspect='auto',vmin=-1.5,vmax=1.5,
+        plt.imshow(resid,aspect='auto',vmin=vmin,vmax=vmax,
                     extent=[timeLim[0],timeLim[1],
                     waveLim[0],waveLim[1]])
         plt.xlabel("Time (min)")
@@ -1430,7 +1431,7 @@ class exo_model(object):
         outPath = 'plots/2d_lightcurves/2d_resid_{}.png'.format(self.descrip)
         phot_pipeline.ensure_directories_are_in_place(outPath)
         print("Saving plot to {}".format(outPath))
-        for extension in ['.png','pdf']:
+        for extension in ['.png','.pdf']:
             plt.savefig(outPath.replace('.png',extension),
                         dpi=150,bbox_inches='tight',facecolor='white')
     
