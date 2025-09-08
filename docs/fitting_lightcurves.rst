@@ -174,6 +174,17 @@ differentialMode
 ~~~~~~~~~~~~~~~~~
 If False, fit the absolute transit depths/eclipse depths. If True, divide by the broadband.
 
+useBBfromWavebins
+~~~~~~~~~~~~~~~~~~~~~
+If True, first calculate the lightcurves for the wavelength bins for the broadband (using a weighted average).
+This is to 
+
+
+bbPixRange
+~~~~~~~~~~
+None or 2 element list. Range of pixels to use for broadband fitting. If None, the dispPixels from tshirt is used.
+
+
 expStart
 ~~~~~~~~
 Should the beginning be fit with an exponential? If True, there will be one exponential.
@@ -241,10 +252,6 @@ If :code:`customData` is :code:`None`, it will be ignored.
 batchInd
 ~~~~~~~~~~~~
 If pipeType is 'batchSpec', then use this index to set which of many different reductions/observations is used.
-
-bbPixRange
-~~~~~~~~~~
-None or 2 element list. Range of pixels to use for broadband fitting. If None, the dispPixels from tshirt is used.
 
 rho_gp_sigma
 ~~~~~~~~~~~~

@@ -94,6 +94,7 @@ class exo_model(object):
                  phaseCurveFormulation='standard',
                  correctedBinCenters=False,
                  differentialMode=False,
+                 useBBfromWavebins=False,
                  customData=None,
                  batchInd=0,
                  bbPixRange=None,
@@ -158,6 +159,9 @@ class exo_model(object):
         self.paramFile = os.path.join(tshirtDir,paramPath)
         
         self.pipeType = pipeType
+        self.correctedBinCenters = correctedBinCenters
+        self.wbin_starts = wbin_starts
+        self.wbin_ends = wbin_ends
 
         self.batchInd = None ## start with unset
         if pipeType == 'customPhot':
@@ -186,15 +190,18 @@ class exo_model(object):
             else:
                 self.spec = spec_pipeline.spec(self.paramFile)
 
-            if bbPixRange is None:
-                bbBinStarts=None
-                bbBinEnds=None
+            if useBBfromWavebins == True:
+                t1, t2 = self.calculate_bb_from_wavebins(recalculate=recalculateTshirt)
             else:
-                bbBinStarts=[bbPixRange[0]]
-                bbBinEnds=[bbPixRange[1]]
+                if bbPixRange is None:
+                    bbBinStarts=None
+                    bbBinEnds=None
+                else:
+                    bbBinStarts=[bbPixRange[0]]
+                    bbBinEnds=[bbPixRange[1]]
             
-            t1, t2 = self.spec.get_wavebin_series(nbins=1,recalculate=recalculateTshirt,
-                                                  binStarts=bbBinStarts,binEnds=bbBinEnds)
+                t1, t2 = self.spec.get_wavebin_series(nbins=1,recalculate=recalculateTshirt,
+                                                    binStarts=bbBinStarts,binEnds=bbBinEnds)
             timeKey = 'Time'
         
         print("Raw file search empty is ok for grabbing lightcurves")
@@ -260,9 +267,7 @@ class exo_model(object):
         self.timeBin = timeBin
         self.override_times = override_times
         
-        self.correctedBinCenters = correctedBinCenters
-        self.wbin_starts = wbin_starts
-        self.wbin_ends = wbin_ends
+
         self.check_wavebins()
 
         self.nbins_resid = nbins_resid
@@ -345,6 +350,33 @@ class exo_model(object):
             refpixDat = ascii.read(self.refpixDatFile)
         
         self.refpix = refpixDat['mean refpix'] - np.median(refpixDat['mean refpix'])
+
+    def calculate_bb_from_wavebins(self,recalculate=True):
+        """
+        Calculate the broadband lightcurve from the wavebins
+        """
+        if self.pipeType != 'spec':
+            raise Exception("Only for spectroscopic lightcurves")
+        
+        t1, t2 = self.spec.get_wavebin_series(nbins=self.nbins,
+                                              recalculate=recalculate,
+                                              binStarts=self.wbin_starts,
+                                              binEnds=self.wbin_ends)
+        HDUList = fits.open(self.spec.wavebin_specFile(nbins=self.nbins))
+        binGrid = HDUList['BINNED F'].data
+        binGrid_err = HDUList['BINNED ERR'].data
+
+        weights = 1./(np.nanmean(binGrid_err,0))**2
+        weights2D = np.tile(weights,[binGrid.shape[0],1])
+        avgSeries = (np.nansum(binGrid * weights2D,1)) / np.nansum(weights2D,1)
+        avgSeries_err = np.sqrt(1./np.nansum(weights2D,1))
+        t1 = Table()
+        t1['Time'] = HDUList['TIME'].data
+        t1['Flux'] = avgSeries
+        t2 = Table()
+        t2['Time'] = t1['Time']
+        t2['Flux Err'] = avgSeries_err
+        return t1, t2
 
     def check_phase(self):
         phase = (self.x - self.t0_lit[0]) / self.period_lit[0]
