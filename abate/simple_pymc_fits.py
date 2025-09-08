@@ -1413,6 +1413,58 @@ class exo_model(object):
         residDat['waveLim'] = waveLim
         return residDat
 
+    def plot_2D_lc_and_residuals(self,nbins=None,
+                                 vminLC=0.997,vmaxLC=1.003,
+                                 vminRes=-300e-6,vmaxRes=300e-6):
+        """
+        Plot 2D lightcurves, systematics-removed lightcurves
+        Model of systematics-removed and residuals
+        """
+        residDat = self.get_2D_residuals(nbins=nbins)
+        lc_res_comb = self.collect_all_lc_and_fits(nbins=nbins)
+        timeLim = residDat['timeLim (min)']
+        waveLim = residDat['waveLim']
+
+        fig, axArr = plt.subplots(1,4,figsize=(15,4),sharey=True,
+                                  sharex=True)
+        axArr[0].imshow(lc_res_comb['y'],aspect='auto',
+                        vmin=vminLC,vmax=vmaxLC,
+                        extent=[timeLim[0],timeLim[1],
+                        waveLim[0],waveLim[1]])
+        axArr[0].set_xlabel("Time (min)")
+        axArr[0].set_ylabel("Wavelength (um)")
+        axArr[0].set_title("Raw Lightcurves")
+
+        sys_model = lc_res_comb['model_sys']/lc_res_comb['model_astroph']
+        sys_cor = lc_res_comb['y']/sys_model
+        axArr[1].imshow(sys_cor,aspect='auto',
+                        vmin=vminLC,vmax=vmaxLC,
+                        extent=[timeLim[0],timeLim[1],
+                        waveLim[0],waveLim[1]])
+        axArr[1].set_xlabel("Time (min)")
+        axArr[1].set_title("Sys-removed LC")
+
+        axArr[2].imshow(lc_res_comb['model_sys'],aspect='auto',
+                        vmin=vminLC,vmax=vmaxLC,
+                        extent=[timeLim[0],timeLim[1],
+                        waveLim[0],waveLim[1]])
+        axArr[2].set_xlabel("Time (min)")
+        axArr[2].set_title("Full LC Model")
+
+        axArr[3].imshow(residDat['resid'],aspect='auto',
+                        vmin=vminRes,vmax=vmaxRes,
+                        extent=[timeLim[0],timeLim[1],
+                        waveLim[0],waveLim[1]])
+        axArr[3].set_xlabel("Time (min)")
+        axArr[3].set_title("Residuals")
+
+        outPath = 'plots/2d_lightcurves/2d_lc_and_resid_{}.png'.format(self.descrip)
+        phot_pipeline.ensure_directories_are_in_place(outPath)
+        print("Saving plot to {}".format(outPath))
+        for extension in ['.png','.pdf']:
+            fig.savefig(outPath.replace('.png',extension),
+                        dpi=150,bbox_inches='tight',facecolor='white')
+
     def plot_2D_residuals(self,nbins=None,
                           vmin=-1.5,vmax=1.5):
         """
@@ -1425,6 +1477,7 @@ class exo_model(object):
         waveLim = residDat['waveLim']
         
         ax.imshow(resid,aspect='auto',vmin=vmin,vmax=vmax,
+                  origin='lower',
                     extent=[timeLim[0],timeLim[1],
                     waveLim[0],waveLim[1]])
         ax.set_xlabel("Time (min)")
