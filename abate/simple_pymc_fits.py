@@ -2740,16 +2740,29 @@ def calc_wav_sp(spList):
 
     return spOut
 
-def overplot_spectra(spList,obs='depth'):
+def overplot_spectra(spList,obs='depth',
+                     labelList=None):
     """
     Overplot spectra
     """
     fig, ax = plt.subplots()
-    for oneSp in spList:
+    if labelList is None:
+        labelList = [None] * len(spList)
+    if obs == 'depth':
+        ax.set_ylabel("Depth (ppm)")
+        multiplier = 1e6
+    else:
+        multiplier = 1.0
+    
+    for ind,oneSp in enumerate(spList):
         ax.errorbar(oneSp['wave mid'],
-                    oneSp['{}'.format(obs)],
-                    oneSp['{} err'.format(obs)])
+                    oneSp['{}'.format(obs)] * multiplier,
+                    oneSp['{} err'.format(obs)] * multiplier,
+                    label=labelList[ind])
     ax.set_xlabel("Wavelength ($\mu$m)")
+    ax.legend()
+    fig.savefig('plots/comparison_spectra/overplot_spectra_{}.png'.format(obs),
+                dpi=150,bbox_inches='tight',facecolor='white')
 
 
 if __name__ == "__main__":
