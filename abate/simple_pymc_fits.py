@@ -2373,7 +2373,7 @@ class exo_model(object):
         Check if there's a spectrum file, if not run.
         """
         if os.path.exists(self.specFileName) == False:
-            self.run_all()
+            self.run_all(plotMxapFirst=False)
             sp = self.collect_spectrum(gatherAll=True)
         else:
             sp = ascii.read(self.specFileName)
